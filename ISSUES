@@ -1,0 +1,5 @@
+Have not tested on windows.
+REP does not work.
+No control dependencies.
+Python does not like to pring out garbage characters
+and dies.
