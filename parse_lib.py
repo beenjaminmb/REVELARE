@@ -20,7 +20,7 @@ def esil_tuples(es):
     z = parse_esil(es, "a")
     return z
 
-def print_dependency(tup, r2, vdift):
+def print_dependency(tup,r2):
     opp = tup[0]
     ret_str = ""
 
@@ -29,18 +29,16 @@ def print_dependency(tup, r2, vdift):
         dst = tup[1]
         src= tup[2]
         if type(src) == tuple:
-            src = print_dependency(src, r2, vdift)
+            src = print_dependency(src,r2)
         if type(dst) == tuple:
-            dst = print_dependency(dst, r2, vdift)
+            dst = print_dependency(dst,r2)
         ret_str = "copy dependency(to={},from={})".format(dst,src)
-        r, dst_len = vdift.get_reg_name(dst)
-        vdift.copy_dependency(src, dst, dst_len, r2)
 
     #catch load address dependencies
     if is_lad(opp):
         src = tup[1]
         if type(src) == tuple:
-            src2 = print_dependency(src, r2, vdift)
+            src2 = print_dependency(src,r2)
             src = r2.cmd("ae {}".format(esil_from_tuple(src)))
         else:
             src2 = src
@@ -55,10 +53,10 @@ def print_dependency(tup, r2, vdift):
         rhs = tup[2]
         #if the LHS is not in its simplest form
         if type(lhs) == tuple:
-            lhs = print_dependency(lhs, r2, vdift)
+            lhs = print_dependency(lhs,r2)
         #if the RHS is not in its simplest form
         if type(rhs) == tuple:
-            rhs = print_dependency(rhs, r2, vdift)
+            rhs = print_dependency(rhs,r2)
         if is_a_constant(lhs) and not is_a_constant(rhs):
             return rhs
         if is_a_constant(rhs) and not is_a_constant(lhs):
@@ -71,14 +69,14 @@ def print_dependency(tup, r2, vdift):
         rhs = tup[2]
         lhs2 = ""
         if type(lhs) == tuple:
-            lhs2 = print_dependency(lhs, r2, vdift)
+            lhs2 = print_dependency(lhs,r2)
             lhs = r2.cmd("ae {}".format(esil_from_tuple(lhs)))
         else:
             lhs2 = lhs
             lhs = r2.cmd("dr? {}".format(lhs))
         #if the RHS is not in its simplest form
         if type(rhs) == tuple:
-            rhs = print_dependency(rhs, r2, vdift)
+            rhs = print_dependency(rhs,r2)
         ret_str = "copy dependency(to={},from=store address dependency(data={},dataToCalcAdd={})))".format(lhs,rhs,lhs2)
 
     #Is computation that sets a value/ends in copy dependency
@@ -86,9 +84,127 @@ def print_dependency(tup, r2, vdift):
         lhs = tup[1]
         rhs = tup[2]
         if type(lhs) == tuple:
-            lhs = print_dependency(lhs, r2, vdift)
+            lhs = print_dependency(lhs,r2)
         if type(rhs) == tuple:
-            rhs = print_dependency(rhs, r2, vdift)
+            rhs = print_dependency(rhs,r2)
+        else:
+            if is_a_constant(rhs):
+                rhs = "constant"
+        ret_str = "copy dependency(to={},from=(computation dependency ({},{}))))".format(lhs,lhs,rhs)
+
+    # Will need to step instruction to see how many bytes were
+    # actually read and written to and tell the calling function
+    # to not "ds" for next instruction
+    # need to consider other syscalls that are sources or sinks
+    if opp == "SPECIAL" or opp == "SYSCALL":
+        #sink
+        #syscall for x86_64 rax = 1 means write
+        #rdi = file descriptor to write to
+        #rsi = mem location of string
+        #rdx = number of bytes to write
+        #syscall for x86_32 eax = 4 me
+        #ebx = file descriptor to write to
+        #ecx = mem location of string
+        #edx = number of bytes to write
+
+        #src
+        #syscall for x86_64 rax = 0 means read
+        #rdi = file descript
+        #rsi = buffer to read into
+        #rdx = number of bytes to read
+        #syscall for x86_32 eax = 3 means write
+        #ebx = file descriptor
+        #ecx = buffer to read into
+        #edx = number of bytes to read
+
+        a_reg = get_register_A_name(r2)
+        a_val = int(r2.cmd("dr? {}".format(a_reg)), 16)
+
+        if a_reg == "rax":
+            if a_val == 1:#WRITE
+                ret_str = "SINK"
+
+            if a_val == 0:#READ
+                ret_str = "SOURCE"
+
+        if a_reg == "eax":
+            if a_val == 4:#WRITE
+                ret_str = "SINK"
+
+            if a_val == 3:#READ
+                ret_str = "SOURCE"
+    return ret_str
+
+
+def apply_dependency(tup, r2, vdift):
+    opp = tup[0]
+    ret_str = ""
+
+    #first case is copy
+    if opp == "=":
+        dst = tup[1]
+        src= tup[2]
+        if type(src) == tuple:
+            src = apply_dependency(src, r2, vdift)
+        if type(dst) == tuple:
+            dst = apply_dependency(dst, r2, vdift)
+        #ret_str = "copy dependency(to={},from={})".format(dst,src)
+        r, dst_len = vdift.get_reg_name(dst)
+        ret_str = vdift.copy_dependency(src, dst, dst_len, r2)
+
+    #catch load address dependencies
+    if is_lad(opp):
+        src = tup[1]
+        if type(src) == tuple:
+            src2 = apply_dependency(src, r2, vdift)
+            src = r2.cmd("ae {}".format(esil_from_tuple(src)))
+        else:
+            src2 = src
+            if is_reg(src):
+                src = r2.cmd("dr? {}".format(src))
+        ret_str = "load address dependency (address={},dataToCalcAdd={})".format(src,src2)
+
+    #case where we have [+,-,*,/,xor,and,or]
+    #a naked computation dependency
+    if simple_computation(opp):
+        lhs = tup[1]
+        rhs = tup[2]
+        #if the LHS is not in its simplest form
+        if type(lhs) == tuple:
+            lhs = apply_dependency(lhs, r2, vdift)
+        #if the RHS is not in its simplest form
+        if type(rhs) == tuple:
+            rhs = apply_dependency(rhs, r2, vdift)
+        if is_a_constant(lhs) and not is_a_constant(rhs):
+            return rhs
+        if is_a_constant(rhs) and not is_a_constant(lhs):
+            return lhs
+        ret_str = "computation dependency ({},{})".format(lhs,rhs)
+
+    #Is a store address dependency
+    if is_sad(opp):
+        lhs = tup[1]
+        rhs = tup[2]
+        lhs2 = ""
+        if type(lhs) == tuple:
+            lhs2 = apply_dependency(lhs, r2, vdift)
+            lhs = r2.cmd("ae {}".format(esil_from_tuple(lhs)))
+        else:
+            lhs2 = lhs
+            lhs = r2.cmd("dr? {}".format(lhs))
+        #if the RHS is not in its simplest form
+        if type(rhs) == tuple:
+            rhs = apply_dependency(rhs, r2, vdift)
+        ret_str = "copy dependency(to={},from=store address dependency(data={},dataToCalcAdd={})))".format(lhs,rhs,lhs2)
+
+    #Is computation that sets a value/ends in copy dependency
+    if is_comp_opp(opp):
+        lhs = tup[1]
+        rhs = tup[2]
+        if type(lhs) == tuple:
+            lhs = apply_dependency(lhs, r2, vdift)
+        if type(rhs) == tuple:
+            rhs = apply_dependency(rhs, r2, vdift)
         else:
             if is_a_constant(rhs):
                 rhs = "constant"
