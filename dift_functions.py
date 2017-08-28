@@ -61,16 +61,6 @@ class DIFT():
         to_taint_mark = None
         from_taint_mark = None
 
-        #toLocation can only be a register or a mem location I think
-        if is_reg(toLocation):
-            to_taint_mark = taint_mark(toLocation, True)
-        elif is_a_constant(toLocation):
-            to_taint_mark = taint_mark(int(toLocation, 16), False )
-            r = to_len
-        else:
-            print("SHIT BALLS")
-            exit()
-
         #fromData can be a reg, a mem location or a taint_mark from a previous
         #calculation
         if is_reg(fromData):
@@ -86,6 +76,21 @@ class DIFT():
             exit()
         if r == 0:
             r = self.get_reg_length(toLocation)
+
+        #make sure taint mark exists first
+        #return otherwise
+        if self.taint.get(from_taint_mark) == None:
+            return
+
+        #toLocation can only be a register or a mem location I think
+        if is_reg(toLocation):
+            to_taint_mark = taint_mark(toLocation, True)
+        elif is_a_constant(toLocation):
+            to_taint_mark = taint_mark(int(toLocation, 16), False)
+            r = to_len
+        else:
+            print("SHIT BALLS. Make sure toLocation is not a taint_mark?")
+            exit()
 
         #Do the actual taint copying
         for i in range(r):
@@ -195,7 +200,7 @@ class DIFT():
 
         rt = taint_mark("tmp", True)
         rt.len = r
-        return ret
+        return rt
 
     def DIFT_taint_source(self, startAddress, elements):
         for i in range (elements):

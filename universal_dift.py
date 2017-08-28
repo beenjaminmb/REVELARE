@@ -3,6 +3,7 @@
 import r2pipe
 import sys
 from parse_lib import *
+from dift_functions import *
 
 def main():
     #pass program as input
@@ -50,7 +51,7 @@ def main():
     of.write("\n----------------\n")
     d = parseao(ao)
     end_addr = find_end(r2, ao, ip)
-
+    vdift = DIFT()
     while(d != {}):
         inum += 1
         #this is not working for some reason
@@ -73,6 +74,7 @@ def main():
                     print("parsed esil:",end="")
                     print(e)
                     print("dependency:{}".format(print_dependency(e, r2)))
+                    #apply_dependency(e, r2, vdift)
                 print("esil:{}".format(d['esil']))
                 print("opcode:{}".format(d['opcode']))
                 print("---end x86 instruction---")
