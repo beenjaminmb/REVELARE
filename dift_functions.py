@@ -40,6 +40,7 @@ class DIFT():
 
     def __init__ (self):
         self.taint = {}
+        self.origtaint = {}
 
     def taint_register(self, reg_taint):
         #make sure its a register first
@@ -205,6 +206,7 @@ class DIFT():
     def DIFT_taint_source(self, startAddress, elements):
         for i in range (elements):
             self.taint[startAddress + i] = self.get_random_taint_vector()
+            self.origtaint[startAddress + i] = self.taint[startAddress + i]
 
     def get_random_taint_vector(self):
         sqrsum = 0
@@ -265,6 +267,18 @@ class DIFT():
         denom = LA.norm(mat1) * LA.norm(mat2)
         ret = np.dot(mat1, mat2) / denom
         return ret
+
+    def DIFT_print_cossim(address, length, fd):
+        """
+        xaxis = in bytes
+        yaxis = out bytes
+        """
+        inbytes = self.origtaint.values()
+        for i in range(length):
+            outbyte = self.taint.get(address + i)
+            for b in inbytes:
+                fd.write(self.cossim(b,outbyte) + " ")
+            fd.write("\n")
 
     def get_taint_magnitude(self, mat1, mat2):
         norm1 = LA.norm(mat1)

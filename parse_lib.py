@@ -97,26 +97,6 @@ def print_dependency(tup,r2):
     # to not "ds" for next instruction
     # need to consider other syscalls that are sources or sinks
     if opp == "SPECIAL" or opp == "SYSCALL":
-        #sink
-        #syscall for x86_64 rax = 1 means write
-        #rdi = file descriptor to write to
-        #rsi = mem location of string
-        #rdx = number of bytes to write
-        #syscall for x86_32 eax = 4 me
-        #ebx = file descriptor to write to
-        #ecx = mem location of string
-        #edx = number of bytes to write
-
-        #src
-        #syscall for x86_64 rax = 0 means read
-        #rdi = file descript
-        #rsi = buffer to read into
-        #rdx = number of bytes to read
-        #syscall for x86_32 eax = 3 means write
-        #ebx = file descriptor
-        #ecx = buffer to read into
-        #edx = number of bytes to read
-
         a_reg = get_register_A_name(r2)
         a_val = int(r2.cmd("dr? {}".format(a_reg)), 16)
 
@@ -138,7 +118,7 @@ def print_dependency(tup,r2):
 
 def apply_dependency(tup, r2, vdift):
     opp = tup[0]
-    ret_str = ""
+    ret_val = ""
 
     #first case is copy
     if opp == "=":
@@ -148,9 +128,9 @@ def apply_dependency(tup, r2, vdift):
             src = apply_dependency(src, r2, vdift)
         if type(dst) == tuple:
             dst = apply_dependency(dst, r2, vdift)
-        #ret_str = "copy dependency(to={},from={})".format(dst,src)
+        #ret_val = "copy dependency(to={},from={})".format(dst,src)
         r, dst_len = vdift.get_reg_name(dst)
-        ret_str = vdift.copy_dependency(src, dst, dst_len, r2)
+        ret_val = vdift.DIFT_copy_dependency(src, dst, dst_len, r2)
 
     #catch load address dependencies
     if is_lad(opp):
@@ -162,7 +142,8 @@ def apply_dependency(tup, r2, vdift):
             src2 = src
             if is_reg(src):
                 src = r2.cmd("dr? {}".format(src))
-        ret_str = "load address dependency (address={},dataToCalcAdd={})".format(src,src2)
+        #ret_val = "load address dependency (address={},dataToCalcAdd={})".format(src,src2)
+        ret_val = vdift.DIFT_load_address_dependency(src, src2, opp, r2)
 
     #case where we have [+,-,*,/,xor,and,or]
     #a naked computation dependency
@@ -179,7 +160,8 @@ def apply_dependency(tup, r2, vdift):
             return rhs
         if is_a_constant(rhs) and not is_a_constant(lhs):
             return lhs
-        ret_str = "computation dependency ({},{})".format(lhs,rhs)
+        #ret_val = "computation dependency ({},{})".format(lhs,rhs)
+        ret_val = vdift.DIFT_computation_dependency(lhs, rhs, r2)
 
     #Is a store address dependency
     if is_sad(opp):
@@ -195,7 +177,10 @@ def apply_dependency(tup, r2, vdift):
         #if the RHS is not in its simplest form
         if type(rhs) == tuple:
             rhs = apply_dependency(rhs, r2, vdift)
-        ret_str = "copy dependency(to={},from=store address dependency(data={},dataToCalcAdd={})))".format(lhs,rhs,lhs2)
+        #ret_val = "copy dependency(to={},from=store address dependency(data={},dataToCalcAdd={})))".format(lhs,rhs,lhs2)
+        ret_val = vdift.DIFT_store_address_dependency(rhs, lhs2, opp, r2)
+        #ret_val.len should work because its a taint mark and has a .len
+        ret_val = vdift.DIFT_copy_dependency(lhs, ret_val, ret_val.len, r2)
 
     #Is computation that sets a value/ends in copy dependency
     if is_comp_opp(opp):
@@ -208,50 +193,62 @@ def apply_dependency(tup, r2, vdift):
         else:
             if is_a_constant(rhs):
                 rhs = "constant"
-        ret_str = "copy dependency(to={},from=(computation dependency ({},{}))))".format(lhs,lhs,rhs)
+        #ret_val = "copy dependency(to={},from=(computation dependency ({},{}))))".format(lhs,lhs,rhs)
+        ret_val = vdift.DIFT_computation_dependency(lhs, rhs, r2)
+        ret_val = vidft.DIFT_copy_dependency(lhs, ret_val, ret_val.len, r2)
 
     # Will need to step instruction to see how many bytes were
     # actually read and written to and tell the calling function
     # to not "ds" for next instruction
     # need to consider other syscalls that are sources or sinks
     if opp == "SPECIAL" or opp == "SYSCALL":
-        #sink
-        #syscall for x86_64 rax = 1 means write
-        #rdi = file descriptor to write to
-        #rsi = mem location of string
-        #rdx = number of bytes to write
-        #syscall for x86_32 eax = 4 me
-        #ebx = file descriptor to write to
-        #ecx = mem location of string
-        #edx = number of bytes to write
-
-        #src
-        #syscall for x86_64 rax = 0 means read
-        #rdi = file descript
-        #rsi = buffer to read into
-        #rdx = number of bytes to read
-        #syscall for x86_32 eax = 3 means write
-        #ebx = file descriptor
-        #ecx = buffer to read into
-        #edx = number of bytes to read
-
         a_reg = get_register_A_name(r2)
         a_val = int(r2.cmd("dr? {}".format(a_reg)), 16)
 
         if a_reg == "rax":
+            #syscall for x86_64 rax = 1 means write
+            #rdi = file descriptor to write to
+            #rsi = mem location of string
+            #rdx = number of bytes to write
             if a_val == 1:#WRITE
-                ret_str = "SINK"
+                ao = open("array_output", "w")
+                rsi = int(r2.cmd("dr? rsi"))
+                rdx = int(r2.cmd("dr? rdx"))
+                vdift.DIFT_print_cossim(rsi, rdx, ao)
+                close(ao)
 
+            #syscall for x86_64 rax = 0 means read
+            #rdi = file descript
+            #rsi = buffer to read into
+            #rdx = number of bytes to read
             if a_val == 0:#READ
-                ret_str = "SOURCE"
+                rdx = int(r2.cmd("dr? rdx"))
+                rsi = int(r2.cmd("dr? rsi"))
+                vdift.DIFT_taint_source(rsi, rdx)
 
         if a_reg == "eax":
+            #syscall for x86_32 eax = 4 means write
+            #ebx = file descriptor to write to
+            #ecx = mem location of string
+            #edx = number of bytes to write
             if a_val == 4:#WRITE
-                ret_str = "SINK"
+                ao = open("array_output", "w")
+                ecx = int(r2.cmd("dr? edx"))
+                edx = int(r2.cmd("dr? ecx"))
+                vdift.DIFT_print_cossim(ecx, edx, ao)
+                close(ao)
 
+            #syscall for x86_32 eax = 3 means read
+            #ebx = file descriptor
+            #ecx = buffer to read into
+            #edx = number of bytes to read
             if a_val == 3:#READ
-                ret_str = "SOURCE"
-    return ret_str
+                ret_val = "SOURCE"
+                edx = int(r2.cmd("dr? edx"))
+                ecx = int(r2.cmd("dr? ecx"))
+                vdift.DIFT_taint_source(ecx, edx)
+
+    return ret_val
 
 #get eax rax; arch dependant
 def get_register_A_name(r2):
