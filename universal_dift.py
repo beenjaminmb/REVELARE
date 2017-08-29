@@ -66,7 +66,7 @@ def main():
             of.write("Instruction number:{}\n".format(str(inum)))
             d = parseao(ao1)
             try:
-                e = parse_esil(d['esil'],1)
+                e = parse_esil(d.get('esil'),1)
                 #of.write(e[0])
                 es = e[0]
                 print("===start x86 instruction===")
@@ -75,11 +75,11 @@ def main():
                     print(e)
                     print("dependency:{}".format(print_dependency(e, r2)))
                     #apply_dependency(e, r2, vdift)
-                print("esil:{}".format(d['esil']))
-                print("opcode:{}".format(d['opcode']))
+                print("esil:{}".format(d.get('esil')))
+                print("opcode:{}".format(d.get('opcode')))
                 print("---end x86 instruction---")
             except:
-                print("skipping:{}".format(d['opcode']))
+                print("skipping:{}".format(d.get('opcode')))
                 print(ao1)
             of.write("\n------end-------\n")
         except UnicodeError as e:
