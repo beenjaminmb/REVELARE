@@ -204,9 +204,6 @@ class DIFT():
         return rt
 
     def DIFT_taint_source(self, startAddress, elements):
-        print("TAINT SOURCE")
-        print(startAddress)
-        print(elements)
         for i in range (elements):
             self.taint[startAddress + i] = self.get_random_taint_vector()
             self.origtaint[startAddress + i] = self.taint[startAddress + i]
