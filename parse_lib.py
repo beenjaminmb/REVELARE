@@ -204,20 +204,16 @@ def apply_dependency(tup, r2, vdift):
     if opp == "SPECIAL" or opp == "SYSCALL":
         a_reg = get_register_A_name(r2)
         a_val = int(r2.cmd("dr? {}".format(a_reg)), 16)
-        print(a_reg)
-        print(a_val)
         if a_reg == "rax":
             #syscall for x86_64 rax = 1 means write
             #rdi = file descriptor to write to
             #rsi = mem location of string
             #rdx = number of bytes to write
             if a_val == 1:#WRITE
-                print("64 write")
                 ao = open("array_output", "a")
                 rsi = int(r2.cmd("dr? rsi"), 16)
                 rdx = int(r2.cmd("dr? rdx"), 16)
                 vdift.DIFT_print_cossim(rsi, rdx, ao)
-                print("rsi = {}, rdi = {}".format(rsi, rdx))
                 close(ao)
 
             #syscall for x86_64 rax = 0 means read
@@ -235,7 +231,6 @@ def apply_dependency(tup, r2, vdift):
             #ecx = mem location of string
             #edx = number of bytes to write
             if a_val == 4:#WRITE
-                print("32 write")
                 ao = open("array_output", "a")
                 ecx = int(r2.cmd("dr? edx"), 16)
                 edx = int(r2.cmd("dr? ecx"), 16)
@@ -247,7 +242,6 @@ def apply_dependency(tup, r2, vdift):
             #ecx = buffer to read into
             #edx = number of bytes to read
             if a_val == 3:#READ
-                print("32 read")
                 edx = int(r2.cmd("dr? edx"), 16)
                 ecx = int(r2.cmd("dr? ecx"), 16)
                 vdift.DIFT_taint_source(ecx, edx)
