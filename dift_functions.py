@@ -223,7 +223,7 @@ class DIFT():
     def get_len(self, arg):
         #if we have a tupel
         if type(arg) == tuple:
-            self.get_arg_length(arg[0])
+            return self.get_arg_length(arg[0])
         else:
             return self.get_reg_length(arg)
 
