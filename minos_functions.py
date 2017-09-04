@@ -10,10 +10,44 @@ from numpy import linalg as LA
 #only have one bool here that states wheather or not we are a register
 #if its a mem value then we make self.mem
 #if its a reg then we make self.reg
+class taint_mark():
+    #initialize a taint mark, make it a mem value by default
+    def __init__(self):
+        self.is_reg = False
+
+    #initialize a taint mark, but make it a reg/mem and give value
+    def __init__(self, val, reg_t):
+        self.is_reg = reg_t
+        if reg_t:
+            self.reg = val
+        else:
+            if type(val) == int:
+                self.mem = val
+            else:
+                self.mem = int(val,16)
+    #Need MINOS re-write
+    def get_taint_rep(self, mode, i):
+        if self.is_reg:
+            if mode == 32:
+                # taint_mark is a register
+                r,p = DIFT.get_reg_name(1,self.reg)
+                return(r,4)
+            if mode == 64:
+                #need to return r,0 if rax and r,4 otherwise(eg. eax, ax, al..)
+                r,p = DIFT.get_reg_name(1,self.reg)
+                if p == 0 and i == 0:
+                    #the upper 32 bits
+                    return (r,0)
+                else:
+                    #the lower 32 bits
+                    return (r,4)
+        else:
+            #self.mem should always be 32 bit alligned
+            return self.mem
 class DIFT():
 
     def __init__ (self):
-        self.taint = set()
+        self.taint = {}
 
     def __init__ (self, r2):
         self.taint = set()
@@ -153,15 +187,16 @@ class DIFT():
             data_tm = taint_mark(data, True)
         elif type(data) == taint_mark:
             data_tm = data
+        #minos cares about the size of a constant
+        #so we will need to adjust this
         elif is_a_constant(data):
             return calc_tm
         else:
             print("can't find that Hannah")
-
-        for i in range(r):
-            to = data_tm.get_taint_rep(i)
-            frm = calc_tm.get_taint_rep(i)
-            self.taint["tmp", i] = combine_taint(to,frm)
+        #fix this to work with 32 and 64 bit modes
+        to = data_tm.get_taint_rep(i, self.mode)
+        frm = calc_tm.get_taint_rep(i, self.mode)
+        self.taint["tmp", i] = combine_taint(to,frm)
 
         rt = taint_mark("tmp", True)
         rt.len = r
@@ -175,11 +210,20 @@ class DIFT():
         elif constant <= 0xffff:
             return 32
 
+    def combine_taint(self, mark1, mark2):
+        ret_mark = mark | mark
+
+        return ret_mark
 
     def DIFT_taint_source(self, startAddress, elements):
+        #number of 32 bit elements
+        elements = math.ceil((elements * 8) / 32)
+        #start address 32 bit alligned
+        startAddress = 32 * math.floor(startAddress / 32)
         for i in range (elements):
-            self.taint[startAddress + i] = self.get_random_taint_vector()
-            self.origtaint[startAddress + i] = self.taint[startAddress + i]
+            loc =  startAddress + (i * 32)
+            self.taint[loc] = 1
+            self.origtaint[loc] = 1
 
     def get_len(self, arg):
         #if we have a tupel
