@@ -454,5 +454,66 @@ def esil_from_tuple(tup):
 
     return rets
 
+#treats everything like its in the 64bit namespace
+def get_reg_name(reg):
+    isGPR = False
+    midletter = ""
+    start = ""
+    end = ""
+    gprs = set(["a","b","c","d"])
+    if reg.startswith("tmp"):
+        return (reg, 0)
+    if len(reg) == 2:
+        midletter = reg[0]
+        end = reg[1]
+    else:
+        if len(reg) == 3:
+            midletter = reg[1]
+            start = reg[0]
+            end = reg[2]
+    if midletter in gprs:
+        isGPR = True
+    else:
+        isGPR = False
+    #for GPR's
+    if isGPR and len(reg) == 3:
+        if start == "e":
+            #replace the e with an r
+            return ("r" + reg[1:], 4)
+        if start == "r":
+            return (reg, 0)
+    else:
+        if isGPR and len(reg) == 2:
+            if end == "x":
+                return ("r" + reg, 6)
+            elif end == "l":
+                return ("r" + reg[0] + "x", 7)
+            elif end == "h":
+                return ("r" + reg[0] + "x" , 6)
+    #for x86_64 r8,r9,...r15
+    if reg[1].isdigit():
+        if reg.endswith("d"):
+            return (reg[:-1], 4)
+        elif reg.endswith("w"):
+            return (reg[:-1],6)
+        elif reg.endswith("l"):
+            return (reg[:-1],7)
+        else:
+            return (reg,0)
+    #Stack, base and instruction pointer
+    #R?P, E?P, ?P, ?PL -> ? = (S|B)
+    #R?I, E?I, ?I, ?IL -> ? = (S|D)
+    pil = set(["p", "i", "l"])
+    if end in pil:
+        if len(reg) == 3:
+            if reg[0] == "r":
+                return (reg, 0)
+            elif reg[0] == "e":
+                return ("r" + reg[1:], 4)
+            elif reg.endswith("l"):
+                return ("r" + start + midletter, 7)
+        elif len(reg) == 2:
+            return ("r" + start + reg[-1], 6)
+
 if __name__ == "__main__":
     main()

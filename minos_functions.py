@@ -5,6 +5,8 @@ import numpy as np
 from parse_lib import is_a_constant
 from parse_lib import is_reg
 from parse_lib import get_register_A_name
+from parse_lib import get_reg_name
+
 from numpy import linalg as LA
 
 #only have one bool here that states wheather or not we are a register
@@ -25,16 +27,15 @@ class taint_mark():
                 self.mem = val
             else:
                 self.mem = int(val,16)
-    #Need MINOS re-write
     def get_taint_rep(self, mode, i):
         if self.is_reg:
             if mode == 32:
                 # taint_mark is a register
-                r,p = DIFT.get_reg_name(1,self.reg)
+                r,p = get_reg_name(self.reg)
                 return(r,4)
             if mode == 64:
                 #need to return r,0 if rax and r,4 otherwise(eg. eax, ax, al..)
-                r,p = DIFT.get_reg_name(1,self.reg)
+                r,p = get_reg_name(self.reg)
                 if p == 0 and i == 0:
                     #the upper 32 bits
                     return (r,0)
@@ -42,8 +43,11 @@ class taint_mark():
                     #the lower 32 bits
                     return (r,4)
         else:
-            #self.mem should always be 32 bit alligned
-            return self.mem
+            if i == 0:
+                #self.mem should always be 32 bit alligned
+                return self.mem
+            else:
+                return self.mem + 32
 class DIFT():
 
     def __init__ (self):
@@ -173,6 +177,7 @@ class DIFT():
         r = get_len(opp)
         calc_tm = taint_mark()
         data_tm = taitn_mark()
+        skip = 0
 
         #calcAddress can either be a reg or taint mark
         if is_reg(calcAddress):
@@ -190,13 +195,23 @@ class DIFT():
         #minos cares about the size of a constant
         #so we will need to adjust this
         elif is_a_constant(data):
-            return calc_tm
+            if sizeof(data) < 32:
+                self.taint["tmp", 0] = 1
+                skip = 1
         else:
             print("can't find that Hannah")
-        #fix this to work with 32 and 64 bit modes
-        to = data_tm.get_taint_rep(i, self.mode)
-        frm = calc_tm.get_taint_rep(i, self.mode)
-        self.taint["tmp", i] = combine_taint(to,frm)
+
+        if not skip:
+            #Always do the lower 32 bits ex (eax and less)
+            to = data_tm.get_taint_rep(i, self.mode, 0)
+            frm = calc_tm.get_taint_rep(i, self.mode, 0)
+            self.taint["tmp", 0] = combine_taint(to,frm)
+            #if in 64 bit mode do the upper 32 bits of the register/mem loc
+            if self.mode == 64:
+                to = data_tm.get_taint_rep(i, self.mode, 1)
+                frm = calc_tm.get_taint_rep(i, self.mode, 1)
+                self.taint["tmp", 1] = combine_taint(to,frm)
+
 
         rt = taint_mark("tmp", True)
         rt.len = r
@@ -264,63 +279,4 @@ class DIFT():
             elif reg.endswith("i"):
                 return 2
         return 1
-
-    #treats everything like its in the 64bit namespace
-    def get_reg_name(self, reg):
-        isGPR = False
-        midletter = ""
-        start = ""
-        end = ""
-        gprs = set(["a","b","c","d"])
-        if len(reg) == 2:
-            midletter = reg[0]
-            end = reg[1]
-        else:
-            if len(reg) == 3:
-                midletter = reg[1]
-                start = reg[0]
-                end = reg[2]
-        if midletter in gprs:
-            isGPR = True
-        else:
-            isGPR = False
-        #for GPR's
-        if isGPR and len(reg) == 3:
-            if start == "e":
-                #replace the e with an r
-                return ("r" + reg[1:], 4)
-            if start == "r":
-                return (reg, 0)
-        else:
-            if isGPR and len(reg) == 2:
-                if end == "x":
-                    return ("r" + reg, 6)
-                elif end == "l":
-                    return ("r" + reg[0] + "x", 7)
-                elif end == "h":
-                    return ("r" + reg[0] + "x" , 6)
-        #for x86_64 r8,r9,...r15
-        if reg[1].isdigit():
-            if reg.endswith("d"):
-                return (reg[:-1], 4)
-            elif reg.endswith("w"):
-                return (reg[:-1],6)
-            elif reg.endswith("l"):
-                return (reg[:-1],7)
-            else:
-                return (reg,0)
-        #Stack, base and instruction pointer
-        #R?P, E?P, ?P, ?PL -> ? = (S|B)
-        #R?I, E?I, ?I, ?IL -> ? = (S|D)
-        pil = set(["p", "i", "l"])
-        if end in pil:
-            if len(reg) == 3:
-                if reg[0] == "r":
-                    return (reg, 0)
-                elif reg[0] == "e":
-                    return ("r" + reg[1:], 4)
-                elif reg.endswith("l"):
-                    return ("r" + start + midletter, 7)
-            elif len(reg) == 2:
-                return ("r" + start + reg[-1], 6)
 
