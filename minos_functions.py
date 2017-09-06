@@ -52,9 +52,11 @@ class DIFT():
 
     def __init__ (self):
         self.taint = {}
+        self.min_size_cutoff = 4
 
     def __init__ (self, r2):
-        self.taint = set()
+        self.taint = set{}
+        self.min_size_cutoff = 4
         a = get_register_A_name(r2)
         if a == "eax":
             self.mode = 32
@@ -154,12 +156,24 @@ class DIFT():
         calc_tm = taint_mark()
         r = get_len(opp)
 
+        if r >= self.min_size_cutoff:
+            #skip the rest cause we are 32 or 64 bit and don't care
+            self.taint["LADtmp", 0] = 0
+            self.taint["LADtmp", 1] = 0
+            rt = taint_mark("LADtmp", True)
+            if self.mode == 32:
+                rt.len = 1
+            else:
+                rt.en = 2
+            return rt
+
         if type(calcAddress) == taint_mark:
             calc_tm = calcAddress()
         elif is_reg(calcAddress):
             calc_tm = taint_mark(calcAddress, True)
         elif is_a_constant(calcAddress):
-            #if we don't use anything to calculate address return
+            #I think I need to do the same thing as SAD taint it
+            #if its a 16 or 8 bit constant
             return address_tm
         else:
             print("the wrong way")
@@ -167,9 +181,9 @@ class DIFT():
         for i in range(r):
             to = address_tm.get_taint_rep(i)
             frm = calc_tm.get_taint_rep(i)
-            self.taint["tmp", i] = combine_taint(to,frm)
+            self.taint["LADtmp", i] = combine_taint(to,frm)
 
-        rt = taint_mark("tmp", True)
+        rt = taint_mark("LADtmp", True)
         rt.len = r
         return rt
 
@@ -179,6 +193,18 @@ class DIFT():
         data_tm = taitn_mark()
         skip = 0
 
+        #as long as get_len() works correctly the following should be good
+        if r >= self.min_size_cutoff:
+            #skip the rest cause we are 32 or 64 bit and don't care
+            self.taint["SADtmp", 0] = 0
+            self.taint["SADtmp", 1] = 0
+            rt = taint_mark("SADtmp", True)
+            if self.mode == 32:
+                rt.len = 1
+            else:
+                rt.en = 2
+            return rt
+
         #calcAddress can either be a reg or taint mark
         if is_reg(calcAddress):
             cacl_tm = taint_mark(calcAddress, True)
@@ -187,7 +213,7 @@ class DIFT():
         else:
             print("what I really want to know")
 
-        #data is either constant, reg, or tm
+        #data is either constant, reg, or taint mark
         if is_reg(data):
             data_tm = taint_mark(data, True)
         elif type(data) == taint_mark:
@@ -205,15 +231,15 @@ class DIFT():
             #Always do the lower 32 bits ex (eax and less)
             to = data_tm.get_taint_rep(i, self.mode, 0)
             frm = calc_tm.get_taint_rep(i, self.mode, 0)
-            self.taint["tmp", 0] = combine_taint(to,frm)
+            self.taint["SADtmp", 0] = combine_taint(to,frm)
             #if in 64 bit mode do the upper 32 bits of the register/mem loc
             if self.mode == 64:
                 to = data_tm.get_taint_rep(i, self.mode, 1)
                 frm = calc_tm.get_taint_rep(i, self.mode, 1)
-                self.taint["tmp", 1] = combine_taint(to,frm)
+                self.taint["SADtmp", 1] = combine_taint(to,frm)
 
 
-        rt = taint_mark("tmp", True)
+        rt = taint_mark("SADtmp", True)
         rt.len = r
         return rt
 
@@ -243,7 +269,7 @@ class DIFT():
     def get_len(self, arg):
         #if we have a tupel
         if type(arg) == tuple:
-            self.get_arg_length(arg[0])
+            return self.get_arg_length(arg[0])
         else:
             return self.get_reg_length(arg)
 
