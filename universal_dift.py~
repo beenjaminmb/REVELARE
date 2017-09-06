@@ -4,6 +4,7 @@ import r2pipe
 import sys
 from parse_lib import *
 #from dift_functions import *
+import importlib
 
 def main():
     #pass program as input
@@ -17,7 +18,7 @@ def main():
         args += sys.argv[i] + " "
     args = args.strip()
 
-    # import the DIFT module
+    # import DIFT module
     dift_lib = __import__(sys.argv[2])
 
     #if they provide a second arg name the output it
