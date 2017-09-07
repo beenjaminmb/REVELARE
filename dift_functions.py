@@ -17,7 +17,8 @@ class taint_mark():
         self.is_reg = False
 
     #initialize a taint mark, but make it a reg/mem and give value
-    def __init__(self, val, reg_t):
+    def set_vals(self, val, reg_t):
+        self.len = 0
         self.is_reg = reg_t
         if reg_t:
             self.reg = val
@@ -61,24 +62,23 @@ class DIFT():
 
     def DIFT_copy_dependency(self, toLocation, fromData, to_len, r2):
         r = 0
-        to_taint_mark = None
-        from_taint_mark = None
+        to_taint_mark = taint_mark()
+        from_taint_mark = taint_mark()
 
         #fromData can be a reg, a mem location or a taint_mark from a previous
         #calculation
         if is_reg(fromData):
-            from_taint_mark = taint_mark(fromData, True)
+            from_taint_mark.set_vals(fromData, True)
         elif is_a_constant(fromData):
             self.clear_taint(to_taint_mark)
             return
         elif type(fromData) == taint_mark:
             from_taint_mark = fromData
+            print("from data len = {}".format(fromData.len))
             r = fromData.len
         else:
             print("NOPE")
             exit()
-        if r == 0:
-            r = self.get_reg_length(toLocation)
 
         #make sure taint mark exists first
         #return otherwise
@@ -87,13 +87,17 @@ class DIFT():
 
         #toLocation can only be a register or a mem location I think
         if is_reg(toLocation):
-            to_taint_mark = taint_mark(toLocation, True)
+            to_taint_mark = to_taint_mark.init(toLocation, True)
         elif is_a_constant(toLocation):
-            to_taint_mark = taint_mark(int(toLocation, 16), False)
+            to_taint_mark = to_taint_mark.init(int(toLocation, 16), False)
             r = to_len
+        elif type(toLocation) == taint_mark:
+            r = toLocation.len
         else:
             print("SHIT BALLS. Make sure toLocation is not a taint_mark?")
             exit()
+        if r == 0:
+            r = self.get_reg_length(toLocation)
 
         #Do the actual taint copying
         for i in range(r):
@@ -120,44 +124,47 @@ class DIFT():
         dst_tm = taint_mark()
         src_tm = taint_mark()
 
-        #arg1 seems to always be a reg
+        #arg1 must always be a reg
         if is_reg(arg1):
-            dst_tm = taint_mark(arg1, True)
+            dst_tm.set_vals(arg1, True)
         else:
             print("The sky is falling!")
             exit()
 
         if is_a_constant(arg2):
-            #if arg2 is a constant we just return src_tm
-            dst_tm.len = get_arg_length(arg1)
+            #if arg2 is a constant we just return dst_tm
+            dst_tm.len = self.get_len(arg1)
             return dst_tm
         elif is_reg(arg2):
-            src_tm = taint_mark(arg2, True)
-        elif type(tm) == taint_mark:
+            src_tm = src_tm.init(arg2, True)
+        elif type(arg2) == taint_mark:
             src_tm = arg2
         else:
+            print(type(arg2))
+            print(arg2)
             print("danger danger")
             exit()
 
-        r = get_arg_length(arg1)
+        r = self.get_arg_length(arg1)
         for i in range(r):
             to = dst_tm.get_taint_rep(i)
             frm = src_tm.get_taint_rep(i)
             self.taint["tmp", i] = combine_taint(to,frm)
-
-        rt = taint_mark("tmp", True)
+        rt = taint_mark()
+        rt = rt.set_vals("tmp", True)
         rt.len = r
         return rt
 
     def DIFT_load_address_dependency(self, address, calcAddress, opp, r2):
-        address_tm = taint_mark(int(address, 16), False)
+        address_tm = taint_mark()
+        address_tm.set_vals(int(address, 16), False)
         calc_tm = taint_mark()
-        r = get_len(opp)
+        r = self.get_len(opp)
 
         if type(calcAddress) == taint_mark:
             calc_tm = calcAddress()
         elif is_reg(calcAddress):
-            calc_tm = taint_mark(calcAddress, True)
+            calc_tm = calc_tm.init(calcAddress, True)
         elif is_a_constant(calcAddress):
             #if we don't use anything to calculate address return
             return address_tm
@@ -167,20 +174,20 @@ class DIFT():
         for i in range(r):
             to = address_tm.get_taint_rep(i)
             frm = calc_tm.get_taint_rep(i)
-            self.taint["tmp", i] = combine_taint(to,frm)
+            self.taint["tmp", i] = self.combine_taint(to,frm)
 
         rt = taint_mark("tmp", True)
         rt.len = r
         return rt
 
     def DIFT_store_address_dependency(self, data, calcAddress, opp, r2):
-        r = get_len(opp)
+        r = self.get_len(opp)
         calc_tm = taint_mark()
-        data_tm = taitn_mark()
+        data_tm = taint_mark()
 
         #calcAddress can either be a reg or taint mark
         if is_reg(calcAddress):
-            cacl_tm = taint_mark(calcAddress, True)
+            calc_tm.set_vals(calcAddress, True)
         elif type(calcAddress) == taint_mark:
             calc_tm = calcAddress
         else:
@@ -188,7 +195,7 @@ class DIFT():
 
         #data is either constant, reg, or tm
         if is_reg(data):
-            data_tm = taint_mark(data, True)
+            data_tm.set_vals(data, True)
         elif type(data) == taint_mark:
             data_tm = data
         elif is_a_constant(data):
@@ -199,7 +206,7 @@ class DIFT():
         for i in range(r):
             to = data_tm.get_taint_rep(i)
             frm = calc_tm.get_taint_rep(i)
-            self.taint["tmp", i] = combine_taint(to,frm)
+            self.taint["tmp", i] = self.combine_taint(to,frm)
 
         rt = taint_mark("tmp", True)
         rt.len = r

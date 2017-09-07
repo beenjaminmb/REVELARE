@@ -129,7 +129,8 @@ def apply_dependency(tup, r2, vdift):
         if type(dst) == tuple:
             dst = apply_dependency(dst, r2, vdift)
         #ret_val = "copy dependency(to={},from={})".format(dst,src)
-        r, dst_len = vdift.get_reg_name(dst)
+        print(dst)
+        r, dst_len = get_reg_name(dst)
         ret_val = vdift.DIFT_copy_dependency(src, dst, dst_len, r2)
 
     #catch load address dependencies
@@ -195,7 +196,7 @@ def apply_dependency(tup, r2, vdift):
                 rhs = "constant"
         #ret_val = "copy dependency(to={},from=(computation dependency ({},{}))))".format(lhs,lhs,rhs)
         ret_val = vdift.DIFT_computation_dependency(lhs, rhs, r2)
-        ret_val = vidft.DIFT_copy_dependency(lhs, ret_val, ret_val.len, r2)
+        ret_val = vdift.DIFT_copy_dependency(lhs, ret_val, ret_val.len, r2)
 
     # Will need to step instruction to see how many bytes were
     # actually read and written to and tell the calling function
@@ -257,6 +258,8 @@ def get_register_A_name(r2):
         return "rax"
 
 def is_a_constant(s):
+    if s == "constant":
+        return True
     if type(s) != str:
         return False
     if s.startswith("0x"):
@@ -415,7 +418,8 @@ def is_reg(i):
                 "rbp", "ebp", "bp", "bpl",
                 "rsi", "esi", "si", "sil",
                 "rdi", "edi", "ri", "ril",
-                "rip","eip","ip"])
+                "rip","eip","ip", "of", "pf",
+                "zf", "sf", "cf"])
     if i in regs:
         return True
     return False
@@ -514,6 +518,8 @@ def get_reg_name(reg):
                 return ("r" + start + midletter, 7)
         elif len(reg) == 2:
             return ("r" + start + reg[-1], 6)
+    if reg.endswith("f"):
+        return (reg, 4)
 
 if __name__ == "__main__":
     main()
