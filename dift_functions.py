@@ -40,6 +40,7 @@ class taint_mark():
 class DIFT():
     MAXLEN = 8
     DIM = 200
+    arrtype = type(np.zeros(1))
 
     def __init__ (self):
         self.taint = {}
@@ -74,7 +75,6 @@ class DIFT():
             return
         elif type(fromData) == taint_mark:
             from_taint_mark = fromData
-            print("from data len = {}".format(fromData.len))
             r = fromData.len
         else:
             print("NOPE")
@@ -87,9 +87,9 @@ class DIFT():
 
         #toLocation can only be a register or a mem location I think
         if is_reg(toLocation):
-            to_taint_mark = to_taint_mark.init(toLocation, True)
+            to_taint_mark.set_vals(toLocation, True)
         elif is_a_constant(toLocation):
-            to_taint_mark = to_taint_mark.init(int(toLocation, 16), False)
+            to_taint_mark.set_vals(int(toLocation, 16), False)
             r = to_len
         elif type(toLocation) == taint_mark:
             r = toLocation.len
@@ -136,7 +136,7 @@ class DIFT():
             dst_tm.len = self.get_len(arg1)
             return dst_tm
         elif is_reg(arg2):
-            src_tm = src_tm.init(arg2, True)
+            src_tm.set_vals(arg2, True)
         elif type(arg2) == taint_mark:
             src_tm = arg2
         else:
@@ -151,7 +151,7 @@ class DIFT():
             frm = src_tm.get_taint_rep(i)
             self.taint["tmp", i] = combine_taint(to,frm)
         rt = taint_mark()
-        rt = rt.set_vals("tmp", True)
+        rt.set_vals("tmp", True)
         rt.len = r
         return rt
 
@@ -162,9 +162,9 @@ class DIFT():
         r = self.get_len(opp)
 
         if type(calcAddress) == taint_mark:
-            calc_tm = calcAddress()
+            calc_tm = calcAddress
         elif is_reg(calcAddress):
-            calc_tm = calc_tm.init(calcAddress, True)
+            calc_tm.set_vals(calcAddress, True)
         elif is_a_constant(calcAddress):
             #if we don't use anything to calculate address return
             return address_tm
@@ -172,11 +172,12 @@ class DIFT():
             print("the wrong way")
 
         for i in range(r):
-            to = address_tm.get_taint_rep(i)
-            frm = calc_tm.get_taint_rep(i)
+            to = self.taint.get(address_tm.get_taint_rep(i))
+            frm = self.taint.get(calc_tm.get_taint_rep(i))
             self.taint["tmp", i] = self.combine_taint(to,frm)
 
-        rt = taint_mark("tmp", True)
+        rt = taint_mark()
+        rt.set_vals("tmp", True)
         rt.len = r
         return rt
 
@@ -204,11 +205,11 @@ class DIFT():
             print("can't find that Hannah")
 
         for i in range(r):
-            to = data_tm.get_taint_rep(i)
-            frm = calc_tm.get_taint_rep(i)
+            to = self.taint.get(data_tm.get_taint_rep(i))
+            frm = self.taint.get(calc_tm.get_taint_rep(i))
             self.taint["tmp", i] = self.combine_taint(to,frm)
-
-        rt = taint_mark("tmp", True)
+        rt = taint_mark()
+        rt.set_vals("tmp", True)
         rt.len = r
         return rt
 
@@ -298,6 +299,17 @@ class DIFT():
         return (max(norm1, norm2) + min(norm1,norm2) * (1.0 - math.pow(self.cossim(mat1,mat2),self.DIM)))
 
     def combine_taint(self, mat1, mat2):
+        if type(mat1) == self.arrtype  and type(mat2) != self.arrtype:
+            print("SHIT1")
+            print (mat1)
+            return mat1
+        elif type(mat2) == self.arrtype and type(mat1) != self.arrtype:
+             print("SHIT2")
+             print(mat2)
+             return(mat2)
+        elif type(mat1) != self.arrtype and type(mat2) != self.arrtype:
+            return np.zeros(self.DIM)
+
         ret_vec = mat1 + mat2
 
         #see if we want to be able to go beyond MAXLEN

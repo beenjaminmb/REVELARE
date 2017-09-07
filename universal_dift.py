@@ -68,24 +68,31 @@ def main():
             #print instruction number for debuggin, probably remove later
             of.write("Instruction number:{}\n".format(str(inum)))
             d = parseao(ao1)
-            try:
+            #try:
+            print(d)
+            if d.__contains__('esil'):
                 e = parse_esil(d.get('esil'),1)
-                #of.write(e[0])
-                es = e[0]
-                print("===start x86 instruction===")
-                for e in es:
-                    print("parsed esil:",end="")
-                    print(e)
-                    print("dependency:{}".format(print_dependency(e, r2)))
-                    #apply_dependency(e, r2, vdift)
-                print("esil:{}".format(d.get('esil')))
-                print("opcode:{}".format(d.get('opcode')))
-                print("---end x86 instruction---")
-            except:
+            else:
                 print("skipping:{}".format(d.get('opcode')))
-                print(ao1)
+                continue
+            #of.write(e[0])
+            es = e[0]
+            print("===start x86 instruction===")
+            for e in es:
+                print("parsed esil:",end="")
+                print(e)
+                #print("dependency:{}".format(print_dependency(e, r2)))
+                apply_dependency(e, r2, vdift)
+            print("esil:{}".format(d.get('esil')))
+            print("opcode:{}".format(d.get('opcode')))
+            print("---end x86 instruction---")
+            #except:
+            #e = sys.exc_info()[0]
+            #print(e)
+            print(ao1)
             of.write("\n------end-------\n")
         except UnicodeError as e:
+            print("NOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO")
             print("shit")
             print(e)
             exit()

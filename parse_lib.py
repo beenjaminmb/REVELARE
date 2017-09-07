@@ -211,6 +211,8 @@ def apply_dependency(tup, r2, vdift):
             #rsi = mem location of string
             #rdx = number of bytes to write
             if a_val == 1:#WRITE
+                print(vdift.taint)
+                print(vdift.origtaint)
                 ao = open("array_output", "a")
                 rsi = int(r2.cmd("dr? rsi"), 16)
                 rdx = int(r2.cmd("dr? rdx"), 16)
@@ -265,6 +267,8 @@ def is_a_constant(s):
     if s.startswith("0x"):
         return True
     if s.isdigit():
+        return True
+    if s.startswith("-") and s[1:].isdigit():
         return True
     return False
 
@@ -406,20 +410,21 @@ def is_reg(i):
                 "rbx", "ebx", "bx", "bh", "bl",
                 "rcx", "ecx", "cx", "ch", "cl",
                 "rdx", "edx", "dx", "dh", "dl",
-                "r8", "r8d", "r8w", "r8l",
-                "r9", "r9d", "r9w", "r9l",
-                "r10", "r10d", "r10w", "r10l",
-                "r11", "r11d", "r11w", "r11l",
-                "r12", "r12d", "r12w", "r12l",
-                "r13", "r13d", "r13w", "r13l",
-                "r14", "r14d", "r14w", "r14l",
-                "r15", "r15d", "r15w", "r15l",
+                "r8", "r8b", "r8d", "r8w", "r8l",
+                "r9", "r9b", "r9d", "r9w", "r9l",
+                "r10", "r10b", "r10d", "r10w", "r10l",
+                "r11", "r11b", "r11d", "r11w", "r11l",
+                "r12", "r12b", "r12d", "r12w", "r12l",
+                "r13", "r13b", "r13d", "r13w", "r13l",
+                "r14", "r14b", "r14d", "r14w", "r14l",
+                "r15", "r15b", "r15d", "r15w", "r15l",
                 "rsp", "esp", "sp", "spl",
                 "rbp", "ebp", "bp", "bpl",
                 "rsi", "esi", "si", "sil",
                 "rdi", "edi", "ri", "ril",
                 "rip","eip","ip", "of", "pf",
-                "zf", "sf", "cf"])
+                "zf", "sf", "cf", "xmm0",
+                "xmm1", "xmm2"])
     if i in regs:
         return True
     return False
@@ -519,6 +524,8 @@ def get_reg_name(reg):
         elif len(reg) == 2:
             return ("r" + start + reg[-1], 6)
     if reg.endswith("f"):
+        return (reg, 4)
+    if reg.startswith("xmm"):
         return (reg, 4)
 
 if __name__ == "__main__":
