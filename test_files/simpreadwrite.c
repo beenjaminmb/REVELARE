@@ -9,9 +9,13 @@
 int main (void)
 {
     char hs[6];
+    char rs[6];
     hs[5] = '\0';
     int fd = open("HI", O_RDONLY);
     read(fd, hs, 5);
-    write(1, hs, 6);
+    for (int i = 0; i < 6; i++) {
+        rs[i] = hs[i];
+    }
+    write(1, rs, 6);
     return 0;
 }
