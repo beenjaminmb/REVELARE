@@ -131,7 +131,7 @@ def apply_dependency(tup, r2, vdift):
         #ret_val = "copy dependency(to={},from={})".format(dst,src)
         print(dst)
         r, dst_len = get_reg_name(dst)
-        ret_val = vdift.DIFT_copy_dependency(src, dst, dst_len, r2)
+        ret_val = vdift.DIFT_copy_dependency(dst, src, dst_len, r2)
 
     #catch load address dependencies
     if is_lad(opp):
@@ -216,6 +216,8 @@ def apply_dependency(tup, r2, vdift):
                 ao = open("array_output", "a")
                 rsi = int(r2.cmd("dr? rsi"), 16)
                 rdx = int(r2.cmd("dr? rdx"), 16)
+                print(rsi)
+                print(rdx)
                 vdift.DIFT_print_cossim(rsi, rdx, ao)
                 close(ao)
 
@@ -427,6 +429,8 @@ def is_reg(i):
                 "xmm1", "xmm2"])
     if i in regs:
         return True
+    if i.startswith("$"):
+        return True
     return False
 
 def is_eflag(r):
@@ -526,6 +530,8 @@ def get_reg_name(reg):
     if reg.endswith("f"):
         return (reg, 4)
     if reg.startswith("xmm"):
+        return (reg, 4)
+    if reg.startswith("$"):
         return (reg, 4)
 
 if __name__ == "__main__":

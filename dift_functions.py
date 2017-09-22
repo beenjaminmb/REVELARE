@@ -2,6 +2,7 @@
 import random
 import math
 import numpy as np
+import sys
 from parse_lib import is_a_constant
 from parse_lib import is_reg
 from parse_lib import get_reg_name
@@ -15,9 +16,11 @@ class taint_mark():
     #initialize a taint mark, make it a mem value by default
     def __init__(self):
         self.is_reg = False
+        self.is_init = False
 
     #initialize a taint mark, but make it a reg/mem and give value
     def set_vals(self, val, reg_t):
+        self.is_init = True
         self.len = 0
         self.is_reg = reg_t
         if reg_t:
@@ -31,6 +34,7 @@ class taint_mark():
     def get_taint_rep(self,i):
         if self.is_reg:
             # taint_mark is a register
+            print(self.reg)
             r,p = get_reg_name(self.reg)
             return(r,p+i)
         else:
@@ -68,21 +72,29 @@ class DIFT():
 
         #fromData can be a reg, a mem location or a taint_mark from a previous
         #calculation
-        if is_reg(fromData):
+        if type(fromData) == taint_mark:
+            from_taint_mark = fromData
+            r = fromData.len
+        elif is_reg(fromData):
             from_taint_mark.set_vals(fromData, True)
         elif is_a_constant(fromData):
             self.clear_taint(to_taint_mark)
             return
-        elif type(fromData) == taint_mark:
-            from_taint_mark = fromData
-            r = fromData.len
         else:
             print("NOPE")
             exit()
-
+        print("TO LOCATION")
+        print(toLocation)
+        print("FROM DATA")
+        print(fromData)
+        if type(fromData) == taint_mark:
+            print(fromData.get_taint_rep(0))
+            if self.taint.get(fromData.get_taint_rep(0)) != self.arrtype:
+                print(self.taint.get(from_taint_mark.get_taint_rep(0)))
         #make sure taint mark exists first
         #return otherwise
-        if self.taint.get(from_taint_mark) == None:
+        if not from_taint_mark.is_init or self.taint.get(from_taint_mark.get_taint_rep(0)) != self.arrtype:
+            print("BAIL!")
             return
 
         #toLocation can only be a register or a mem location I think
@@ -103,6 +115,10 @@ class DIFT():
         for i in range(r):
             to = to_taint_mark.get_taint_rep(i)
             frm = from_taint_mark.get_taint_rep(i)
+            print("TO:")
+            print(to)
+            print("FROM")
+            print(frm)
             self.taint[to] = self.taint[frm]
 
     #need to make sure that tm actuall exists I think
@@ -111,8 +127,7 @@ class DIFT():
         if tm.is_reg:
             l = self.get_reg_length(tm.reg)
         else:
-            print("OMG")
-            exit()
+            return
         for i in range(l):
             loc = tm.get_taint_rep(i)
             self.taint[loc] = self.taint[loc] * 0
@@ -135,10 +150,10 @@ class DIFT():
             #if arg2 is a constant we just return dst_tm
             dst_tm.len = self.get_len(arg1)
             return dst_tm
-        elif is_reg(arg2):
-            src_tm.set_vals(arg2, True)
         elif type(arg2) == taint_mark:
             src_tm = arg2
+        elif is_reg(arg2):
+            src_tm.set_vals(arg2, True)
         else:
             print(type(arg2))
             print(arg2)
@@ -174,10 +189,11 @@ class DIFT():
         for i in range(r):
             to = self.taint.get(address_tm.get_taint_rep(i))
             frm = self.taint.get(calc_tm.get_taint_rep(i))
-            self.taint["tmp", i] = self.combine_taint(to,frm)
+            self.taint["tmp1", i] = self.combine_taint(to,frm)
+            print(self.taint["tmp1" , i])
 
         rt = taint_mark()
-        rt.set_vals("tmp", True)
+        rt.set_vals("tmp1", True)
         rt.len = r
         return rt
 
@@ -187,18 +203,18 @@ class DIFT():
         data_tm = taint_mark()
 
         #calcAddress can either be a reg or taint mark
-        if is_reg(calcAddress):
-            calc_tm.set_vals(calcAddress, True)
-        elif type(calcAddress) == taint_mark:
+        if type(calcAddress) == taint_mark:
             calc_tm = calcAddress
+        elif is_reg(calcAddress):
+            calc_tm.set_vals(calcAddress, True)
         else:
             print("what I really want to know")
 
         #data is either constant, reg, or tm
-        if is_reg(data):
-            data_tm.set_vals(data, True)
-        elif type(data) == taint_mark:
+        if type(data) == taint_mark:
             data_tm = data
+        elif is_reg(data):
+            data_tm.set_vals(data, True)
         elif is_a_constant(data):
             return calc_tm
         else:
@@ -214,6 +230,8 @@ class DIFT():
         return rt
 
     def DIFT_taint_source(self, startAddress, elements):
+        print(startAddress)
+        print(elements)
         for i in range (elements):
             self.taint[startAddress + i] = self.get_random_taint_vector()
             self.origtaint[startAddress + i] = self.taint[startAddress + i]
@@ -311,6 +329,10 @@ class DIFT():
             return np.zeros(self.DIM)
 
         ret_vec = mat1 + mat2
+        if np.array_equal(mat1, np.zeros(self.DIM)):
+            return ret_vec
+        elif np.array_equal(mat2, np.zeros(self.DIM)):
+            return ret_vec
 
         #see if we want to be able to go beyond MAXLEN
         tm = self.get_taint_magnitude(mat1, mat2)
