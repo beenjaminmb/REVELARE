@@ -93,8 +93,10 @@ class DIFT():
                 print(self.taint.get(from_taint_mark.get_taint_rep(0)))
         #make sure taint mark exists first
         #return otherwise
-        if not from_taint_mark.is_init or self.taint.get(from_taint_mark.get_taint_rep(0)) != self.arrtype:
+        if (not from_taint_mark.is_init) or (type(self.taint.get(from_taint_mark.get_taint_rep(0))) != self.arrtype):
+            print(from_taint_mark.is_init)
             print("BAIL!")
+            print()
             return
 
         #toLocation can only be a register or a mem location I think
