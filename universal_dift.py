@@ -78,13 +78,13 @@ def main():
             #of.write(e[0])
             es = e[0]
             print("===start x86 instruction===")
+            print("esil:{}".format(d.get('esil')))
+            print("opcode:{}".format(d.get('opcode')))
             for e in es:
                 print("parsed esil:",end="")
                 print(e)
                 print("dependency:{}".format(print_dependency(e, r2)))
                 apply_dependency(e, r2, vdift)
-            print("esil:{}".format(d.get('esil')))
-            print("opcode:{}".format(d.get('opcode')))
             print("---end x86 instruction---")
             #except:
             #e = sys.exc_info()[0]

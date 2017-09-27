@@ -219,7 +219,7 @@ def apply_dependency(tup, r2, vdift):
                 print(rsi)
                 print(rdx)
                 vdift.DIFT_print_cossim(rsi, rdx, ao)
-                close(ao)
+                ao.close()
 
             #syscall for x86_64 rax = 0 means read
             #rdi = file descript
@@ -240,7 +240,7 @@ def apply_dependency(tup, r2, vdift):
                 ecx = int(r2.cmd("dr? edx"), 16)
                 edx = int(r2.cmd("dr? ecx"), 16)
                 vdift.DIFT_print_cossim(ecx, edx, ao)
-                close(ao)
+                ao.close()
 
             #syscall for x86_32 eax = 3 means read
             #ebx = file descriptor

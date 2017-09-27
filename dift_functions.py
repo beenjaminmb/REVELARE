@@ -121,7 +121,11 @@ class DIFT():
             print(to)
             print("FROM")
             print(frm)
-            self.taint[to] = self.taint[frm]
+            try:
+                self.taint[to] = self.taint[frm]
+                print(self.taint[to])
+            except KeyError:
+                continue
 
     #need to make sure that tm actuall exists I think
     def clear_taint(self, tm):
