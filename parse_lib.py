@@ -492,27 +492,27 @@ def get_reg_name(reg):
     if isGPR and len(reg) == 3:
         if start == "e":
             #replace the e with an r
-            return ("r" + reg[1:], 4)
+            return ("r" + reg[1:], 3)
         if start == "r":
-            return (reg, 0)
+            return (reg, 7)
     else:
         if isGPR and len(reg) == 2:
             if end == "x":
-                return ("r" + reg, 6)
+                return ("r" + reg, 1)
             elif end == "l":
-                return ("r" + reg[0] + "x", 7)
+                return ("r" + reg[0] + "x", 0)
             elif end == "h":
-                return ("r" + reg[0] + "x" , 6)
+                return ("r" + reg[0] + "x" , 1)
     #for x86_64 r8,r9,...r15
     if reg[1].isdigit():
         if reg.endswith("d"):
-            return (reg[:-1], 4)
+            return (reg[:-1], 3)
         elif reg.endswith("w"):
-            return (reg[:-1],6)
+            return (reg[:-1],1)
         elif reg.endswith("l"):
-            return (reg[:-1],7)
+            return (reg[:-1],0)
         else:
-            return (reg,0)
+            return (reg,7)
     #Stack, base and instruction pointer
     #R?P, E?P, ?P, ?PL -> ? = (S|B)
     #R?I, E?I, ?I, ?IL -> ? = (S|D)
@@ -520,19 +520,19 @@ def get_reg_name(reg):
     if end in pil:
         if len(reg) == 3:
             if reg[0] == "r":
-                return (reg, 0)
+                return (reg, 7)
             elif reg[0] == "e":
-                return ("r" + reg[1:], 4)
+                return ("r" + reg[1:], 3)
             elif reg.endswith("l"):
-                return ("r" + start + midletter, 7)
+                return ("r" + start + midletter, 0)
         elif len(reg) == 2:
-            return ("r" + start + reg[-1], 6)
+            return ("r" + start + reg[-1], 1)
     if reg.endswith("f"):
-        return (reg, 4)
+        return (reg, 3)
     if reg.startswith("xmm"):
-        return (reg, 4)
+        return (reg, 3)
     if reg.startswith("$"):
-        return (reg, 4)
+        return (reg, 3)
 
 if __name__ == "__main__":
     main()

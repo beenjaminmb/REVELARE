@@ -36,7 +36,7 @@ class taint_mark():
             # taint_mark is a register
             print(self.reg)
             r,p = get_reg_name(self.reg)
-            return(r,p+i)
+            return(r,i)
         else:
             # taint is a mem location
             return (self.mem + i)
@@ -45,6 +45,7 @@ class DIFT():
     MAXLEN = 8
     DIM = 200
     arrtype = type(np.zeros(1))
+    debug_help = 0
 
     def __init__ (self):
         self.taint = {}
@@ -83,10 +84,13 @@ class DIFT():
         else:
             print("NOPE")
             exit()
-        print("TO LOCATION")
-        print(toLocation)
-        print("FROM DATA")
-        print(fromData)
+
+        if self.debug_help:
+            print("TO LOCATION")
+            print(toLocation)
+            print("FROM DATA")
+            print(fromData)
+
         if type(fromData) == taint_mark:
             print(fromData.get_taint_rep(0))
             if self.taint.get(fromData.get_taint_rep(0)) != self.arrtype:
@@ -117,10 +121,11 @@ class DIFT():
         for i in range(r):
             to = to_taint_mark.get_taint_rep(i)
             frm = from_taint_mark.get_taint_rep(i)
-            print("TO:")
-            print(to)
-            print("FROM")
-            print(frm)
+            if self.debug_help:
+                print("TO:")
+                print(to)
+                print("FROM")
+                print(frm)
             try:
                 self.taint[to] = self.taint[frm]
                 print(self.taint[to])
@@ -225,6 +230,9 @@ class DIFT():
             return calc_tm
         else:
             print("can't find that Hannah")
+
+        print(calc_tm.get_taint_rep(0))
+        print(data_tm.get_taint_rep(0))
 
         for i in range(r):
             to = self.taint.get(data_tm.get_taint_rep(i))
