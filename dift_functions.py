@@ -43,9 +43,9 @@ class taint_mark():
 
 class DIFT():
     MAXLEN = 8
-    DIM = 200
+    DIM = 100
     arrtype = type(np.zeros(1))
-    debug_help = 0
+    debug_help = 1
 
     def __init__ (self):
         self.taint = {}
@@ -175,9 +175,9 @@ class DIFT():
         for i in range(r):
             to = dst_tm.get_taint_rep(i)
             frm = src_tm.get_taint_rep(i)
-            self.taint["tmp", i] = combine_taint(to,frm)
+            self.taint["tmp2", i] = combine_taint(to,frm)
         rt = taint_mark()
-        rt.set_vals("tmp", True)
+        rt.set_vals("tmp2", True)
         rt.len = r
         return rt
 
