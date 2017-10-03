@@ -16,17 +16,8 @@ class taint_mark():
     #initialize a taint mark, make it a mem value by default
     def __init__(self):
         self.is_reg = False
+        self.is_init = False
 
-    #initialize a taint mark, but make it a reg/mem and give value
-    def __init__(self, val, reg_t):
-        self.is_reg = reg_t
-        if reg_t:
-            self.reg = val
-        else:
-            if type(val) == int:
-                self.mem = val
-            else:
-                self.mem = int(val,16)
     def get_taint_rep(self, mode, i):
         if self.is_reg:
             if mode == 32:
@@ -48,6 +39,20 @@ class taint_mark():
                 return self.mem
             else:
                 return self.mem + 32
+
+    def set_taint(self, val, reg_t):
+        self.is_init = True
+        self.len = 0
+        self.is_reg = reg_t
+        if reg_t:
+            self.reg = val
+        else:
+            if type(val) == int:
+                self.mem = val
+            else:
+                self.mem = int(val,16)
+
+
 class DIFT():
 
     def __init__ (self):
@@ -60,8 +65,10 @@ class DIFT():
         a = get_register_A_name(r2)
         if a == "eax":
             self.mode = 32
+            self.size = 1
         elif a == "rax":
             self.mode = 64
+            self.size = 2
         else:
             print("DANGER")
             exit()
@@ -72,19 +79,19 @@ class DIFT():
         8 and 16 bit pieces of data taint all 32 bits of data they go
         """
         r = 0
-        to_taint_mark = None
-        from_taint_mark = None
+        to_taint_mark = taint_mark()
+        from_taint_mark = taint_mark()
 
         #fromData can be a reg, a mem location or a taint_mark from a previous
         #calculation
-        if is_reg(fromData):
-            from_taint_mark = taint_mark(fromData, True)
+        if type(fromData) == taint_mark:
+            from_taint_mark = fromData
+            r = fromData.len
+        elif is_reg(fromData):
+            from_taint_mark.set_taint(fromData, True)
         elif is_a_constant(fromData):
             self.clear_taint(to_taint_mark)
             return
-        elif type(fromData) == taint_mark:
-            from_taint_mark = fromData
-            r = fromData.len
         else:
             print("NOPE")
             exit()
@@ -93,24 +100,29 @@ class DIFT():
 
         #make sure taint mark exists first
         #return otherwise
-        if self.taint.get(from_taint_mark) == None:
+        if (not from_taint_mark.is_init) or (type(self.get(from_taint_mark.get_taint_rep(0))) != int ):
             return
 
         #toLocation can only be a register or a mem location I think
         if is_reg(toLocation):
-            to_taint_mark = taint_mark(toLocation, True)
+            to_taint_mark.set_taint(toLocation, True)
         elif is_a_constant(toLocation):
-            to_taint_mark = taint_mark(int(toLocation, 16), False)
+            to_taint_mark.set_taint(int(toLocation, 16), False)
             r = to_len
+        elif: type(toLocation) == taint_mark:
+            r = toLocation.len
         else:
             print("Make sure toLocation is not a taint_mark?")
             exit()
 
         #Do the actual taint copying
-        for i in range(r):
+        for i in range(self.size):
             to = to_taint_mark.get_taint_rep(i)
             frm = from_taint_mark.get_taint_rep(i)
-            self.taint[to] = self.taint[frm]
+            try:
+                self.taint[to] = self.taint[frm]
+            except KeyError:
+                break
 
 
     def DIFT_computation_dependency(self, arg1, arg2, r2):
@@ -121,7 +133,7 @@ class DIFT():
 
         #arg1 seems to always be a reg
         if is_reg(arg1):
-            dst_tm = taint_mark(arg1, True)
+            dst_tm.set_taint(arg1, True)
         else:
             print("The sky is falling!")
             exit()
@@ -130,21 +142,25 @@ class DIFT():
             #if arg2 is a constant we just return src_tm
             dst_tm.len = get_arg_length(arg1)
             return dst_tm
-        elif is_reg(arg2):
-            src_tm = taint_mark(arg2, True)
         elif type(tm) == taint_mark:
             src_tm = arg2
+        elif is_reg(arg2):
+            src_tm.set_taint(arg2, True)
         else:
             print("danger danger")
             exit()
 
         r = get_arg_length(arg1)
-        for i in range(r):
+        for i in range(self.size):
             to = dst_tm.get_taint_rep(i)
             frm = src_tm.get_taint_rep(i)
-            self.taint["tmp", i] = combine_taint(to,frm)
+            try:
+                self.taint["tmp1", i] = combine_taint(to,frm)
+            except KeyError:
+                break
 
-        rt = taint_mark("tmp", True)
+        rt = taint_mark()
+        rt.set_taint("tmp1", True)
         rt.len = r
         return rt
 
@@ -152,19 +168,20 @@ class DIFT():
         """
         8 and 16 bit immediate values taint their destinations
         """
-        address_tm = taint_mark(int(address, 16), False)
+        address_tm = taint_mark()
+        address_tm.set_taint(int(address, 16), False)
         calc_tm = taint_mark()
         r = get_len(opp)
 
         if r >= self.min_size_cutoff:
             #skip the rest cause we are 32 or 64 bit and don't care
             self.taint["LADtmp", 0] = 0
-            self.taint["LADtmp", 1] = 0
             rt = taint_mark("LADtmp", True)
             if self.mode == 32:
                 rt.len = 1
             else:
                 rt.en = 2
+                self.taint["LADtmp", 1] = 0
             return rt
 
         if type(calcAddress) == taint_mark:
@@ -178,12 +195,13 @@ class DIFT():
         else:
             print("the wrong way")
 
-        for i in range(r):
+        for i in range(self.size):
             to = address_tm.get_taint_rep(i)
             frm = calc_tm.get_taint_rep(i)
             self.taint["LADtmp", i] = combine_taint(to,frm)
 
-        rt = taint_mark("LADtmp", True)
+        rt = taint_mark()
+        rt.set_taint("LADtmp", True)
         rt.len = r
         return rt
 
@@ -197,27 +215,27 @@ class DIFT():
         if r >= self.min_size_cutoff:
             #skip the rest cause we are 32 or 64 bit and don't care
             self.taint["SADtmp", 0] = 0
-            self.taint["SADtmp", 1] = 0
             rt = taint_mark("SADtmp", True)
             if self.mode == 32:
                 rt.len = 1
             else:
                 rt.en = 2
+                self.taint["SADtmp", 1] = 0
             return rt
 
         #calcAddress can either be a reg or taint mark
         if is_reg(calcAddress):
-            cacl_tm = taint_mark(calcAddress, True)
+            cacl_tm.set_taint(calcAddress, True)
         elif type(calcAddress) == taint_mark:
             calc_tm = calcAddress
         else:
             print("what I really want to know")
 
         #data is either constant, reg, or taint mark
-        if is_reg(data):
-            data_tm = taint_mark(data, True)
-        elif type(data) == taint_mark:
+        if type(data) == taint_mark:
             data_tm = data
+        elif is_reg(data):
+            data_tm.set_taint(data, True)
         #minos cares about the size of a constant
         #so we will need to adjust this
         elif is_a_constant(data):
@@ -238,8 +256,8 @@ class DIFT():
                 frm = calc_tm.get_taint_rep(i, self.mode, 1)
                 self.taint["SADtmp", 1] = combine_taint(to,frm)
 
-
-        rt = taint_mark("SADtmp", True)
+        rt = taint_mark()
+        rt.set_taint("SADtmp", True)
         rt.len = r
         return rt
 

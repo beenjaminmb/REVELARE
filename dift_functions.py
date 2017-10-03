@@ -45,7 +45,7 @@ class DIFT():
     MAXLEN = 8
     DIM = 100
     arrtype = type(np.zeros(1))
-    debug_help = 1
+    debug_help = 0
 
     def __init__ (self):
         self.taint = {}
@@ -90,17 +90,17 @@ class DIFT():
             print(toLocation)
             print("FROM DATA")
             print(fromData)
+            if type(fromData) == taint_mark:
+                print(fromData.get_taint_rep(0))
+                if self.taint.get(fromData.get_taint_rep(0)) != self.arrtype:
+                    print(self.taint.get(from_taint_mark.get_taint_rep(0)))
 
-        if type(fromData) == taint_mark:
-            print(fromData.get_taint_rep(0))
-            if self.taint.get(fromData.get_taint_rep(0)) != self.arrtype:
-                print(self.taint.get(from_taint_mark.get_taint_rep(0)))
         #make sure taint mark exists first
         #return otherwise
         if (not from_taint_mark.is_init) or (type(self.taint.get(from_taint_mark.get_taint_rep(0))) != self.arrtype):
-            print(from_taint_mark.is_init)
-            print("BAIL!")
-            print()
+            if self.debug_help:
+                print(from_taint_mark.is_init)
+                print("BAIL!")
             return
 
         #toLocation can only be a register or a mem location I think
@@ -128,9 +128,10 @@ class DIFT():
                 print(frm)
             try:
                 self.taint[to] = self.taint[frm]
-                print(self.taint[to])
+                #print(self.taint[to])
             except KeyError:
-                continue
+                #continue
+                break
 
     #need to make sure that tm actuall exists I think
     def clear_taint(self, tm):
@@ -230,9 +231,6 @@ class DIFT():
             return calc_tm
         else:
             print("can't find that Hannah")
-
-        print(calc_tm.get_taint_rep(0))
-        print(data_tm.get_taint_rep(0))
 
         for i in range(r):
             to = self.taint.get(data_tm.get_taint_rep(i))

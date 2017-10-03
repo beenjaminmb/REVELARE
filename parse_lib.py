@@ -211,13 +211,14 @@ def apply_dependency(tup, r2, vdift):
             #rsi = mem location of string
             #rdx = number of bytes to write
             if a_val == 1:#WRITE
-                print(vdift.taint)
-                print(vdift.origtaint)
                 ao = open("array_output", "a")
                 rsi = int(r2.cmd("dr? rsi"), 16)
                 rdx = int(r2.cmd("dr? rdx"), 16)
-                print(rsi)
-                print(rdx)
+                if vdift.debug_help:
+                    print(rsi)
+                    print(rdx)
+                    print(vdift.taint)
+                    print(vdift.origtaint)
                 vdift.DIFT_print_cossim(rsi, rdx, ao)
                 ao.close()
 
