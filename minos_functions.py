@@ -23,22 +23,22 @@ class taint_mark():
             if mode == 32:
                 # taint_mark is a register
                 r,p = get_reg_name(self.reg)
-                return(r,4)
+                return(r,3)
             if mode == 64:
-                #need to return r,0 if rax and r,4 otherwise(eg. eax, ax, al..)
+                #need to return r,7 if rax and r,3 otherwise(eg. eax, ax, al..)
                 r,p = get_reg_name(self.reg)
                 if p == 0 and i == 0:
                     #the upper 32 bits
-                    return (r,0)
+                    return (r,3)
                 else:
                     #the lower 32 bits
-                    return (r,4)
+                    return (r,7)
         else:
             if i == 0:
                 #self.mem should always be 32 bit alligned
                 return self.mem
             else:
-                return self.mem + 32
+                return int((self.mem + i) /32)
 
     def set_taint(self, val, reg_t):
         self.is_init = True
@@ -47,6 +47,8 @@ class taint_mark():
         if reg_t:
             self.reg = val
         else:
+            #first allign value if un-aligned
+            #also make field .was_alligned accordingly
             if type(val) == int:
                 self.mem = val
             else:
