@@ -53,7 +53,11 @@ class taint_mark():
                 self.mem = val
             else:
                 self.mem = int(val,16)
-
+            if self.mem % 32 == 0:
+                self.was_alligned = 1
+            else:
+                self.mem = self.mem - (self.mem % 32)
+                self.was_alligned = 0
 
 class DIFT():
 
@@ -272,7 +276,7 @@ class DIFT():
             return 32
 
     def combine_taint(self, mark1, mark2):
-        ret_mark = mark | mark
+        ret_mark = mark1 | mark2
 
         return ret_mark
 
