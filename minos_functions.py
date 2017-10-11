@@ -82,7 +82,7 @@ class DIFT():
     def DIFT_copy_dependency(self, toLocation, fromData, to_len, r2):
         """
         For MINOS if copy to memory is not 32 bit alligned it is tainted
-        8 and 16 bit pieces of data taint all 32 bits of data they go
+        8 and 16 bit pieces of data taint all 32 bits of data
         """
         r = 0
         to_taint_mark = taint_mark()
@@ -106,12 +106,25 @@ class DIFT():
 
         #make sure taint mark exists first
         #return otherwise
-        if (not from_taint_mark.is_init) or (type(self.get(from_taint_mark.get_taint_rep(0))) != int ):
+        if (not from_taint_mark.is_init) or (type(self.get(from_taint_mark.get_taint_rep(self.mode, 0))) != int ):
             return
 
         #toLocation can only be a register or a mem location I think
         if is_reg(toLocation):
             to_taint_mark.set_taint(toLocation, True)
+            #need a check here to make sure the register is not rip/eip
+            #if so we need need to throw an allert to warn of
+            #"integrety check failed"
+            reg_name, dc = to_taint_mark.get_taint_rep(self.mode, 0)
+            if reg_name == "rip":
+                #instruction is a ret nothing else should set rip
+                #check from location
+                ftm = from_taint_mark.get_taint_rep(self.mode, 0)
+                tm = self.taint.get(fmt)
+                if tm == 1:
+                    print("Integrety Check Failed exiting!")
+                    r2.quit()
+                    exit(0)
         elif is_a_constant(toLocation):
             to_taint_mark.set_taint(int(toLocation, 16), False)
             r = to_len
@@ -123,8 +136,8 @@ class DIFT():
 
         #Do the actual taint copying
         for i in range(self.size):
-            to = to_taint_mark.get_taint_rep(i)
-            frm = from_taint_mark.get_taint_rep(i)
+            to = to_taint_mark.get_taint_rep(self.mode, i)
+            frm = from_taint_mark.get_taint_rep(self.mode, i)
             try:
                 self.taint[to] = self.taint[frm]
             except KeyError:
@@ -158,8 +171,8 @@ class DIFT():
 
         r = get_arg_length(arg1)
         for i in range(self.size):
-            to = dst_tm.get_taint_rep(i)
-            frm = src_tm.get_taint_rep(i)
+            to = dst_tm.get_taint_rep(self.mode, i)
+            frm = src_tm.get_taint_rep(self.mode, i)
             try:
                 self.taint["tmp1", i] = combine_taint(to,frm)
             except KeyError:
@@ -186,7 +199,7 @@ class DIFT():
             if self.mode == 32:
                 rt.len = 1
             else:
-                rt.en = 2
+                rt.len = 2
                 self.taint["LADtmp", 1] = 0
             return rt
 
@@ -202,8 +215,8 @@ class DIFT():
             print("the wrong way")
 
         for i in range(self.size):
-            to = address_tm.get_taint_rep(i)
-            frm = calc_tm.get_taint_rep(i)
+            to = address_tm.get_taint_rep(self.mode, i)
+            frm = calc_tm.get_taint_rep(self.mode, i)
             self.taint["LADtmp", i] = combine_taint(to,frm)
 
         rt = taint_mark()
@@ -225,7 +238,7 @@ class DIFT():
             if self.mode == 32:
                 rt.len = 1
             else:
-                rt.en = 2
+                rt.len = 2
                 self.taint["SADtmp", 1] = 0
             return rt
 
@@ -244,22 +257,25 @@ class DIFT():
             data_tm.set_taint(data, True)
         #minos cares about the size of a constant
         #so we will need to adjust this
+        #don't use size of data, use size the to
+        #location has instead
+        #TODO FIX below and add to LAD section
         elif is_a_constant(data):
             if sizeof(data) < 32:
-                self.taint["tmp", 0] = 1
+                self.taint["SADtmp", 0] = 1
                 skip = 1
         else:
             print("can't find that Hannah")
 
         if not skip:
             #Always do the lower 32 bits ex (eax and less)
-            to = data_tm.get_taint_rep(i, self.mode, 0)
-            frm = calc_tm.get_taint_rep(i, self.mode, 0)
+            to = data_tm.get_taint_rep(self.mode, 0)
+            frm = calc_tm.get_taint_rep(self.mode, 0)
             self.taint["SADtmp", 0] = combine_taint(to,frm)
             #if in 64 bit mode do the upper 32 bits of the register/mem loc
             if self.mode == 64:
-                to = data_tm.get_taint_rep(i, self.mode, 1)
-                frm = calc_tm.get_taint_rep(i, self.mode, 1)
+                to = data_tm.get_taint_rep(self.mode, 1)
+                frm = calc_tm.get_taint_rep(self.mode, 1)
                 self.taint["SADtmp", 1] = combine_taint(to,frm)
 
         rt = taint_mark()
