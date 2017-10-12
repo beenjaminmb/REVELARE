@@ -143,7 +143,7 @@ class DIFT():
             except KeyError:
                 break
 
-
+    #MINOS does nothing special for computation dependency
     def DIFT_computation_dependency(self, arg1, arg2, r2):
         #always return a taint_mark
         #unless you throw an error and die
@@ -182,7 +182,7 @@ class DIFT():
         rt.set_taint("tmp1", True)
         rt.len = r
         return rt
-
+    #Say what this function does and double check before testing.
     def DIFT_load_address_dependency(self, address, calcAddress, opp, r2):
         """
         8 and 16 bit immediate values taint their destinations
@@ -195,7 +195,8 @@ class DIFT():
         if r >= self.min_size_cutoff:
             #skip the rest cause we are 32 or 64 bit and don't care
             self.taint["LADtmp", 0] = 0
-            rt = taint_mark("LADtmp", True)
+            rt = taint_mark()
+            rt.set_taint("LADtmp", True)
             if self.mode == 32:
                 rt.len = 1
             else:
@@ -206,7 +207,7 @@ class DIFT():
         if type(calcAddress) == taint_mark:
             calc_tm = calcAddress()
         elif is_reg(calcAddress):
-            calc_tm = taint_mark(calcAddress, True)
+            calc_tm.set_taint(calcAddress, True)
         elif is_a_constant(calcAddress):
             #I think I need to do the same thing as SAD taint it
             #if its a 16 or 8 bit constant
@@ -224,17 +225,23 @@ class DIFT():
         rt.len = r
         return rt
 
+    #Here I am:
+    #Ignoring 32 bit stores
+    #tainting IFF a constant acts on a 16 or 8 bit value(opp is[1],[2])
+    #tainting anything that loads a 1-2 byte immediate value into the address
+    #tainting everything else normally
     def DIFT_store_address_dependency(self, data, calcAddress, opp, r2):
         r = get_len(opp)
         calc_tm = taint_mark()
-        data_tm = taitn_mark()
+        data_tm = taint_mark()
         skip = 0
 
         #as long as get_len() works correctly the following should be good
         if r >= self.min_size_cutoff:
             #skip the rest cause we are 32 or 64 bit and don't care
             self.taint["SADtmp", 0] = 0
-            rt = taint_mark("SADtmp", True)
+            rt = taint_mark()
+            rt.set_taint("SADtmp", True)
             if self.mode == 32:
                 rt.len = 1
             else:
@@ -257,11 +264,8 @@ class DIFT():
             data_tm.set_taint(data, True)
         #minos cares about the size of a constant
         #so we will need to adjust this
-        #don't use size of data, use size the to
-        #location has instead
-        #TODO FIX below and add to LAD section
         elif is_a_constant(data):
-            if sizeof(data) < 32:
+            if r < 4:
                 self.taint["SADtmp", 0] = 1
                 skip = 1
         else:
@@ -272,12 +276,6 @@ class DIFT():
             to = data_tm.get_taint_rep(self.mode, 0)
             frm = calc_tm.get_taint_rep(self.mode, 0)
             self.taint["SADtmp", 0] = combine_taint(to,frm)
-            #if in 64 bit mode do the upper 32 bits of the register/mem loc
-            if self.mode == 64:
-                to = data_tm.get_taint_rep(self.mode, 1)
-                frm = calc_tm.get_taint_rep(self.mode, 1)
-                self.taint["SADtmp", 1] = combine_taint(to,frm)
-
         rt = taint_mark()
         rt.set_taint("SADtmp", True)
         rt.len = r
