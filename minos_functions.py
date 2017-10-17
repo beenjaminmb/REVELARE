@@ -18,21 +18,11 @@ class taint_mark():
         self.is_reg = False
         self.is_init = False
 
-    def get_taint_rep(self, mode, i):
+    def get_taint_rep(self, i):
         if self.is_reg:
-            if mode == 32:
-                # taint_mark is a register
-                r,p = get_reg_name(self.reg)
-                return(r,3)
-            if mode == 64:
-                #need to return r,7 if rax and r,3 otherwise(eg. eax, ax, al..)
-                r,p = get_reg_name(self.reg)
-                if p == 0 and i == 0:
-                    #the upper 32 bits
-                    return (r,3)
-                else:
-                    #the lower 32 bits
-                    return (r,7)
+            # taint_mark is a register
+            r,p = get_reg_name(self.reg)
+            return(r,3)
         else:
             if i == 0:
                 #self.mem should always be 32 bit alligned
@@ -64,16 +54,14 @@ class DIFT():
     def __init__ (self):
         self.taint = {}
         self.min_size_cutoff = 4
-        a = get_register_A_name(r2)
-        if a == "eax":
-            self.mode = 32
-            self.size = 1
-        elif a == "rax":
-            self.mode = 64
-            self.size = 2
-        else:
-            print("DANGER")
-            exit()
+        self.size = 1
+
+    def clear_taint(self, taint):
+        if not taint.is_init:
+            return
+        loc = taint.get_taint_rep(0)
+        if type(loc) == int:
+            self.taint[loc] = 0
 
     def DIFT_copy_dependency(self, toLocation, fromData, to_len, r2):
         """
@@ -92,6 +80,8 @@ class DIFT():
         elif is_reg(fromData):
             from_taint_mark.set_taint(fromData, True)
         elif is_a_constant(fromData):
+            #I might need to fix this so that if it is a immediate < 32 bits
+            #we taint it
             self.clear_taint(to_taint_mark)
             return
         else:
@@ -102,7 +92,7 @@ class DIFT():
 
         #make sure taint mark exists first
         #return otherwise
-        if (not from_taint_mark.is_init) or (type(self.get(from_taint_mark.get_taint_rep(self.mode, 0))) != int ):
+        if (not from_taint_mark.is_init) or (type(self.taint.get(from_taint_mark.get_taint_rep(0))) != int ):
             return
 
         #toLocation can only be a register or a mem location I think
@@ -113,11 +103,11 @@ class DIFT():
             #need a check here to make sure the register is not rip/eip
             #if so we need need to throw an allert to warn of
             #"integrety check failed"
-            reg_name, dc = to_taint_mark.get_taint_rep(self.mode, 0)
+            reg_name, dc = to_taint_mark.get_taint_rep(0)
             if reg_name == "rip":
                 #instruction is a ret nothing else should set rip
                 #check from location
-                ftm = from_taint_mark.get_taint_rep(self.mode, 0)
+                fmt = from_taint_mark.get_taint_rep(0)
                 tm = self.taint.get(fmt)
                 if tm == 1:
                     print("Integrety Check Failed exiting!")
@@ -126,7 +116,7 @@ class DIFT():
         elif is_a_constant(toLocation):
             to_taint_mark.set_taint(int(toLocation, 16), False)
             r = to_len
-        elif: type(toLocation) == taint_mark:
+        elif type(toLocation) == taint_mark:
             r = toLocation.len
         else:
             print("Make sure toLocation is not a taint_mark?")
@@ -134,8 +124,8 @@ class DIFT():
 
         #Do the actual taint copying
         for i in range(self.size):
-            to = to_taint_mark.get_taint_rep(self.mode, i)
-            frm = from_taint_mark.get_taint_rep(self.mode, i)
+            to = to_taint_mark.get_taint_rep(i)
+            frm = from_taint_mark.get_taint_rep(i)
             try:
                 self.taint[to] = self.taint[frm]
             except KeyError:
@@ -157,9 +147,9 @@ class DIFT():
 
         if is_a_constant(arg2):
             #if arg2 is a constant we just return src_tm
-            dst_tm.len = get_arg_length(arg1)
+            dst_tm.len = self.get_arg_length(arg1)
             return dst_tm
-        elif type(tm) == taint_mark:
+        elif type(arg2) == taint_mark:
             src_tm = arg2
         elif is_reg(arg2):
             src_tm.set_taint(arg2, True)
@@ -167,12 +157,12 @@ class DIFT():
             print("danger danger")
             exit()
 
-        r = get_arg_length(arg1)
+        r = self.get_arg_length(arg1)
         for i in range(self.size):
-            to = dst_tm.get_taint_rep(self.mode, i)
-            frm = src_tm.get_taint_rep(self.mode, i)
+            to = dst_tm.get_taint_rep(i)
+            frm = src_tm.get_taint_rep(i)
             try:
-                self.taint["tmp1", i] = combine_taint(to,frm)
+                self.taint["tmp1", i] = self.combine_taint(to,frm)
             except KeyError:
                 break
 
@@ -192,7 +182,7 @@ class DIFT():
         address_tm = taint_mark()
         address_tm.set_taint(int(address, 16), False)
         calc_tm = taint_mark()
-        r = get_len(opp)
+        r = self.get_len(opp)
         skip = 0
 
         if r >= self.min_size_cutoff:
@@ -200,12 +190,11 @@ class DIFT():
             self.taint["LADtmp", 3] = 0
             rt = taint_mark()
             rt.set_taint("LADtmp", True)
-            if self.mode == 32:
-                rt.len = 1
+            rt.len = 1
             return rt
 
         if type(calcAddress) == taint_mark:
-            calc_tm = calcAddress()
+            calc_tm = calcAddress
         elif is_reg(calcAddress):
             calc_tm.set_taint(calcAddress, True)
         elif is_a_constant(calcAddress):
@@ -217,9 +206,9 @@ class DIFT():
 
         if not skip:
             #Always do the lower 32 bits ex (eax)
-            to = data_tm.get_taint_rep(self.mode, 0)
-            frm = calc_tm.get_taint_rep(self.mode, 0)
-            self.taint["LADtmp", 3] = combine_taint(to,frm)
+            to = address_tm.get_taint_rep(0)
+            frm = calc_tm.get_taint_rep(0)
+            self.taint["LADtmp", 3] = self.combine_taint(to,frm)
 
         rt = taint_mark()
         rt.set_taint("LADtmp", True)
@@ -232,7 +221,7 @@ class DIFT():
     #tainting anything that loads a 1-2 byte immediate value into the address
     #tainting everything else normally
     def DIFT_store_address_dependency(self, data, calcAddress, opp, r2):
-        r = get_len(opp)
+        r = self.get_len(opp)
         calc_tm = taint_mark()
         data_tm = taint_mark()
         skip = 0
@@ -243,13 +232,12 @@ class DIFT():
             self.taint["SADtmp", 3] = 0
             rt = taint_mark()
             rt.set_taint("SADtmp", True)
-            if self.mode == 32:
-                rt.len = 1
+            rt.len = 1
             return rt
 
         #calcAddress can either be a reg or taint mark
         if is_reg(calcAddress):
-            cacl_tm.set_taint(calcAddress, True)
+            calc_tm.set_taint(calcAddress, True)
         elif type(calcAddress) == taint_mark:
             calc_tm = calcAddress
         else:
@@ -271,9 +259,9 @@ class DIFT():
 
         if not skip:
             #Always do the lower 32 bits ex (eax and less)
-            to = data_tm.get_taint_rep(self.mode, 0)
-            frm = calc_tm.get_taint_rep(self.mode, 0)
-            self.taint["SADtmp", 3] = combine_taint(to,frm)
+            to = data_tm.get_taint_rep(0)
+            frm = calc_tm.get_taint_rep(0)
+            self.taint["SADtmp", 3] = self.combine_taint(to,frm)
         rt = taint_mark()
         rt.set_taint("SADtmp", True)
         rt.len = r
@@ -288,7 +276,16 @@ class DIFT():
             return 32
 
     def combine_taint(self, mark1, mark2):
-        ret_mark = mark1 | mark2
+        tm1 = self.taint.get(mark1)
+        tm2 = self.taint.get(mark2)
+        if tm1 == None and tm2 == None:
+            return 0
+        elif tm1 == None and tm2 != None:
+            return tm2
+        elif tm1 != None and tm2 == None:
+            return tm1
+        else:
+            ret_mark = tm1 | tm2
 
         return ret_mark
 

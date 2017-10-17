@@ -176,7 +176,7 @@ class DIFT():
         for i in range(r):
             to = dst_tm.get_taint_rep(i)
             frm = src_tm.get_taint_rep(i)
-            self.taint["tmp2", i] = combine_taint(to,frm)
+            self.taint["tmp2", i] = self.combine_taint(to,frm)
         rt = taint_mark()
         rt.set_vals("tmp2", True)
         rt.len = r

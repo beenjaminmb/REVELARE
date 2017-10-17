@@ -477,6 +477,8 @@ def get_reg_name(reg):
     gprs = set(["a","b","c","d"])
     if reg.startswith("tmp"):
         return (reg, 0)
+    if reg.endswith("tmp"):
+        return (reg, 3)
     if len(reg) == 2:
         midletter = reg[0]
         end = reg[1]
