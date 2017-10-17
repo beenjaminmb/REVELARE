@@ -64,10 +64,6 @@ class DIFT():
     def __init__ (self):
         self.taint = {}
         self.min_size_cutoff = 4
-
-    def __init__ (self, r2):
-        self.taint = set{}
-        self.min_size_cutoff = 4
         a = get_register_A_name(r2)
         if a == "eax":
             self.mode = 32
@@ -110,8 +106,10 @@ class DIFT():
             return
 
         #toLocation can only be a register or a mem location I think
+
         if is_reg(toLocation):
             to_taint_mark.set_taint(toLocation, True)
+            #the following is the integrety check for functions that change (R|E)IP
             #need a check here to make sure the register is not rip/eip
             #if so we need need to throw an allert to warn of
             #"integrety check failed"
@@ -182,7 +180,11 @@ class DIFT():
         rt.set_taint("tmp1", True)
         rt.len = r
         return rt
+
     #Say what this function does and double check before testing.
+    #This function:
+    #Skips all LAD that deal with 32 bits
+    #Anything with a constant is treated as taint if it is less than 32 bits
     def DIFT_load_address_dependency(self, address, calcAddress, opp, r2):
         """
         8 and 16 bit immediate values taint their destinations
@@ -191,17 +193,15 @@ class DIFT():
         address_tm.set_taint(int(address, 16), False)
         calc_tm = taint_mark()
         r = get_len(opp)
+        skip = 0
 
         if r >= self.min_size_cutoff:
             #skip the rest cause we are 32 or 64 bit and don't care
-            self.taint["LADtmp", 0] = 0
+            self.taint["LADtmp", 3] = 0
             rt = taint_mark()
             rt.set_taint("LADtmp", True)
             if self.mode == 32:
                 rt.len = 1
-            else:
-                rt.len = 2
-                self.taint["LADtmp", 1] = 0
             return rt
 
         if type(calcAddress) == taint_mark:
@@ -209,16 +209,17 @@ class DIFT():
         elif is_reg(calcAddress):
             calc_tm.set_taint(calcAddress, True)
         elif is_a_constant(calcAddress):
-            #I think I need to do the same thing as SAD taint it
-            #if its a 16 or 8 bit constant
-            return address_tm
+            if r < 4:
+                self.taint["LADtmp", 3] = 1
+                skip = 1
         else:
             print("the wrong way")
 
-        for i in range(self.size):
-            to = address_tm.get_taint_rep(self.mode, i)
-            frm = calc_tm.get_taint_rep(self.mode, i)
-            self.taint["LADtmp", i] = combine_taint(to,frm)
+        if not skip:
+            #Always do the lower 32 bits ex (eax)
+            to = data_tm.get_taint_rep(self.mode, 0)
+            frm = calc_tm.get_taint_rep(self.mode, 0)
+            self.taint["LADtmp", 3] = combine_taint(to,frm)
 
         rt = taint_mark()
         rt.set_taint("LADtmp", True)
@@ -239,14 +240,11 @@ class DIFT():
         #as long as get_len() works correctly the following should be good
         if r >= self.min_size_cutoff:
             #skip the rest cause we are 32 or 64 bit and don't care
-            self.taint["SADtmp", 0] = 0
+            self.taint["SADtmp", 3] = 0
             rt = taint_mark()
             rt.set_taint("SADtmp", True)
             if self.mode == 32:
                 rt.len = 1
-            else:
-                rt.len = 2
-                self.taint["SADtmp", 1] = 0
             return rt
 
         #calcAddress can either be a reg or taint mark
@@ -266,7 +264,7 @@ class DIFT():
         #so we will need to adjust this
         elif is_a_constant(data):
             if r < 4:
-                self.taint["SADtmp", 0] = 1
+                self.taint["SADtmp", 3] = 1
                 skip = 1
         else:
             print("can't find that Hannah")
@@ -275,7 +273,7 @@ class DIFT():
             #Always do the lower 32 bits ex (eax and less)
             to = data_tm.get_taint_rep(self.mode, 0)
             frm = calc_tm.get_taint_rep(self.mode, 0)
-            self.taint["SADtmp", 0] = combine_taint(to,frm)
+            self.taint["SADtmp", 3] = combine_taint(to,frm)
         rt = taint_mark()
         rt.set_taint("SADtmp", True)
         rt.len = r
