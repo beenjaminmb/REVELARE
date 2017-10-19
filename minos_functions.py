@@ -111,8 +111,11 @@ class DIFT():
                 tm = self.taint.get(fmt)
                 if tm == 1:
                     print("Integrety Check Failed exiting!")
-                    r2.quit()
-                    exit(0)
+                    print(from_taint_mark.get_taint_rep(0))
+                    for t in self.taint:
+                        print(t)
+                        print(self.taint[t])
+                    return
         elif is_a_constant(toLocation):
             to_taint_mark.set_taint(int(toLocation, 16), False)
             r = to_len
@@ -182,9 +185,10 @@ class DIFT():
         address_tm = taint_mark()
         address_tm.set_taint(int(address, 16), False)
         calc_tm = taint_mark()
-        r = self.get_len(opp)
+        r = self.get_arg_length(opp)
         skip = 0
-
+        print("len opp was {}".format(r))
+        """
         if r >= self.min_size_cutoff:
             #skip the rest cause we are 32 or 64 bit and don't care
             self.taint["LADtmp", 3] = 0
@@ -192,6 +196,7 @@ class DIFT():
             rt.set_taint("LADtmp", True)
             rt.len = 1
             return rt
+        """
 
         if type(calcAddress) == taint_mark:
             calc_tm = calcAddress
@@ -201,6 +206,10 @@ class DIFT():
             if r < 4:
                 self.taint["LADtmp", 3] = 1
                 skip = 1
+            else:
+                self.taint["LADtmp", 3] = 0
+                skip = 1
+
         else:
             print("the wrong way")
 
@@ -221,12 +230,12 @@ class DIFT():
     #tainting anything that loads a 1-2 byte immediate value into the address
     #tainting everything else normally
     def DIFT_store_address_dependency(self, data, calcAddress, opp, r2):
-        r = self.get_len(opp)
+        r = self.get_arg_length(opp)
         calc_tm = taint_mark()
         data_tm = taint_mark()
         skip = 0
-
         #as long as get_len() works correctly the following should be good
+        """
         if r >= self.min_size_cutoff:
             #skip the rest cause we are 32 or 64 bit and don't care
             self.taint["SADtmp", 3] = 0
@@ -234,6 +243,7 @@ class DIFT():
             rt.set_taint("SADtmp", True)
             rt.len = 1
             return rt
+        """
 
         #calcAddress can either be a reg or taint mark
         if is_reg(calcAddress):
@@ -254,6 +264,10 @@ class DIFT():
             if r < 4:
                 self.taint["SADtmp", 3] = 1
                 skip = 1
+            else:
+                self.taint["SADtmp", 3] = 0
+                skip = 1
+
         else:
             print("can't find that Hannah")
 
@@ -297,7 +311,6 @@ class DIFT():
         for i in range (elements):
             loc =  startAddress + (i * 32)
             self.taint[loc] = 1
-            self.origtaint[loc] = 1
 
     def get_len(self, arg):
         #if we have a tupel

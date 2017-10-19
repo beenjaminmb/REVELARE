@@ -81,16 +81,22 @@ def print_dependency(tup,r2):
 
     #Is computation that sets a value/ends in copy dependency
     if is_comp_opp(opp):
-        lhs = tup[1]
-        rhs = tup[2]
-        if type(lhs) == tuple:
-            lhs = print_dependency(lhs,r2)
-        if type(rhs) == tuple:
-            rhs = print_dependency(rhs,r2)
+        #need special case for ++=, --=, and !=
+        #these are nothing to me but possible control dependencies
+        if len(tup) == 2:
+            print("Control Dependency")
+            ret_str = "Control Dependency"
         else:
-            if is_a_constant(rhs):
-                rhs = "constant"
-        ret_str = "copy dependency(to={},from=(computation dependency ({},{}))))".format(lhs,lhs,rhs)
+            lhs = tup[1]
+            rhs = tup[2]
+            if type(lhs) == tuple:
+                lhs = print_dependency(lhs,r2)
+            if type(rhs) == tuple:
+                rhs = print_dependency(rhs,r2)
+            else:
+                if is_a_constant(rhs):
+                    rhs = "constant"
+            ret_str = "copy dependency(to={},from=(computation dependency ({},{}))))".format(lhs,lhs,rhs)
 
     # Will need to step instruction to see how many bytes were
     # actually read and written to and tell the calling function
@@ -185,18 +191,23 @@ def apply_dependency(tup, r2, vdift):
 
     #Is computation that sets a value/ends in copy dependency
     if is_comp_opp(opp):
-        lhs = tup[1]
-        rhs = tup[2]
-        if type(lhs) == tuple:
-            lhs = apply_dependency(lhs, r2, vdift)
-        if type(rhs) == tuple:
-            rhs = apply_dependency(rhs, r2, vdift)
+        if len(tup) == 2:
+            #Skip for now this is just a control dependency if we
+            #caure to have EIP/RIP affect everything
+            return
         else:
-            if is_a_constant(rhs):
-                rhs = "constant"
-        #ret_val = "copy dependency(to={},from=(computation dependency ({},{}))))".format(lhs,lhs,rhs)
-        ret_val = vdift.DIFT_computation_dependency(lhs, rhs, r2)
-        ret_val = vdift.DIFT_copy_dependency(lhs, ret_val, ret_val.len, r2)
+            lhs = tup[1]
+            rhs = tup[2]
+            if type(lhs) == tuple:
+                lhs = apply_dependency(lhs, r2, vdift)
+            if type(rhs) == tuple:
+                rhs = apply_dependency(rhs, r2, vdift)
+            else:
+                if is_a_constant(rhs):
+                    rhs = "constant"
+            #ret_val = "copy dependency(to={},from=(computation dependency ({},{}))))".format(lhs,lhs,rhs)
+            ret_val = vdift.DIFT_computation_dependency(lhs, rhs, r2)
+            ret_val = vdift.DIFT_copy_dependency(lhs, ret_val, ret_val.len, r2)
 
     # Will need to step instruction to see how many bytes were
     # actually read and written to and tell the calling function
@@ -237,10 +248,11 @@ def apply_dependency(tup, r2, vdift):
             #ecx = mem location of string
             #edx = number of bytes to write
             if a_val == 4:#WRITE
+                print("WRITING FILE")
                 ao = open("array_output", "a")
                 ecx = int(r2.cmd("dr? edx"), 16)
                 edx = int(r2.cmd("dr? ecx"), 16)
-                vdift.DIFT_print_cossim(ecx, edx, ao)
+                #vdift.DIFT_print_cossim(ecx, edx, ao)
                 ao.close()
 
             #syscall for x86_32 eax = 3 means read
@@ -248,6 +260,7 @@ def apply_dependency(tup, r2, vdift):
             #ecx = buffer to read into
             #edx = number of bytes to read
             if a_val == 3:#READ
+                print("READING FILE")
                 edx = int(r2.cmd("dr? edx"), 16)
                 ecx = int(r2.cmd("dr? ecx"), 16)
                 vdift.DIFT_taint_source(ecx, edx)
@@ -427,7 +440,9 @@ def is_reg(i):
                 "rdi", "edi", "ri", "ril",
                 "rip","eip","ip", "of", "pf",
                 "zf", "sf", "cf", "xmm0",
-                "xmm1", "xmm2"])
+                "xmm1", "xmm2", "xmm3", "xmm4",
+                "xmm5", "xmm6", "xmm7", "xmm8",
+                "xmm9"])
     if i in regs:
         return True
     if i.startswith("$"):

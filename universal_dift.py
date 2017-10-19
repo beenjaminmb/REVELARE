@@ -41,7 +41,7 @@ def main():
     r2.cmd("db main")# set breakpoint at main
     r2.cmd("dc") #run the program
 
-    print(r2.cmd("pd")) #print memory map
+    print(r2.cmd("aaa; pdf")) #print memory map
 
     #ip = instruction pointer
     ip = getIPname(r2)
@@ -55,7 +55,8 @@ def main():
     d = parseao(ao)
     end_addr = find_end(r2, ao, ip)
     vdift = dift_lib.DIFT()
-    while(d != {}):
+    dc = 0
+    while(dc != 10):
         inum += 1
         #this is not working for some reason
         #if d["address"] == end_addr:
@@ -66,31 +67,39 @@ def main():
             #this makes it so we only get esil and address info
             ao1 = r2.cmd("ao~esil,address,opcode")
             #print instruction number for debuggin, probably remove later
-            of.write("Instruction number:{}\n".format(str(inum)))
+            #of.write("Instruction number:{}\n".format(str(inum)))
             d = parseao(ao1)
             #try:
             print(d)
             if d.__contains__('esil'):
                 e = parse_esil(d.get('esil'),1)
+                dc = 1
             else:
-                print("skipping:{}".format(d.get('opcode')))
+                print("skipping:{}".format(d))
+                dc += 1
                 continue
             #of.write(e[0])
             es = e[0]
             print("===start x86 instruction===")
+            for i in range(5):
+                pxo = r2.cmd("px 4 @ esp")
+                if pxo != '':
+                    print(pxo)
+                    break
+            print(r2.cmd("px 4 @ esp"))
             print("esil:{}".format(d.get('esil')))
             print("opcode:{}".format(d.get('opcode')))
+            print(ao1)
             for e in es:
                 print("parsed esil:",end="")
                 print(e)
-                print("dependency:{}".format(print_dependency(e, r2)))
-                apply_dependency(e, r2, vdift)
+                #print("dependency:{}".format(print_dependency(e, r2)))
+                #apply_dependency(e, r2, vdift)
             print("---end x86 instruction---")
             #except:
             #e = sys.exc_info()[0]
             #print(e)
-            print(ao1)
-            of.write("\n------end-------\n")
+            #of.write("\n------end-------\n")
         except UnicodeError as e:
             print("NOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO")
             print("shit")
@@ -125,14 +134,18 @@ def getIPname(r2):
 
 #make a dictionary of "ao" info
 def parseao(info):
-    sinfo = info.split("\n")
-    d = {}
-    if sinfo == ['']:
+    try:
+        sinfo = info.split("\n")
+        d = {}
+        if sinfo == ['']:
+            return d
+        for s in sinfo:
+            sl = s.split(":")
+            d[sl[0].strip()]=sl[1].strip()
         return d
-    for s in sinfo:
-        sl = s.split(":")
-        d[sl[0].strip()]=sl[1].strip()
-    return d
+    except IndexError:
+        return ''
+
 
 if __name__=="__main__":
     main()
