@@ -48,21 +48,10 @@ def main():
 
     eip = r2.cmd("dr?" + ip)#get instruction pointer
     r2.cmd("s "+eip) #seek to IP
-    ao = r2.cmd("ao") #print ESIL and other info
-    of.write(ao)
-    of.write("\n----------------\n")
-    d = parseao(ao)
-    end_addr = find_end(r2, ao, ip)
     vdift = dift_lib.DIFT()
-    run_loop = 1
+    ao_output, d, e, run_loop = run_ao_command(r2)
     while(run_loop):
         try:
-            #debug setp, seek to eip
-            r2.cmd("ds;s `dr? {}`".format(ip))
-            #this makes it so we only get esil and address info
-            ao_output, d, e, run_loop = run_ao_command(r2)
-            if not run_loop:
-                continue
             esil_instructions = e[0]
             print("===start x86 instruction===")
             print_stack(4, r2)
@@ -77,6 +66,9 @@ def main():
                 apply_dependency(e, r2, vdift)
                 """
             print("---end x86 instruction---")
+            r2.cmd("ds;s `dr? {}`".format(ip))
+            #debug setp, seek to eip
+            ao_output, d, e, run_loop = run_ao_command(r2)
         except UnicodeError as e:
             print(e)
             exit()
@@ -92,6 +84,7 @@ def print_stack(n, r2):
 
 def run_ao_command(r2):
     ao1 = r2.cmd("ao~esil,address,opcode")
+    #place output of above command into a dictionary
     d = parseao(ao1)
     e = ''
     to_continue = 1
