@@ -58,55 +58,77 @@ def main():
     dc = 0
     while(dc != 10):
         inum += 1
-        #this is not working for some reason
-        #if d["address"] == end_addr:
-            #if here we are at the end of main
-        #    break;
         try:
+            #debug setp, seek to eip
             r2.cmd("ds;s `dr? {}`".format(ip))
             #this makes it so we only get esil and address info
             ao1 = r2.cmd("ao~esil,address,opcode")
             #print instruction number for debuggin, probably remove later
-            #of.write("Instruction number:{}\n".format(str(inum)))
             d = parseao(ao1)
-            #try:
             print(d)
             if d.__contains__('esil'):
                 e = parse_esil(d.get('esil'),1)
                 dc = 1
             else:
-                print("skipping:{}".format(d))
                 dc += 1
-                continue
-            #of.write(e[0])
+                to_continue = 1
+                for i in range(5):
+                    ao1 = r2.cmd("ao~esil,address,opcode")
+                    d = parseao(ao1)
+                    if type(d) == dict and d != {}:
+                        print(d)
+                        e = parse_esil(d.get('esil'),1)
+                        to_continue = 0
+                        dc = 1
+                        break
+                if to_continue:
+                    print("skipping:{}".format(d))
+                    continue
             es = e[0]
             print("===start x86 instruction===")
             for i in range(5):
                 pxo = r2.cmd("px 4 @ esp")
-                if pxo != '':
+                if pxo.startswith("- offset -"):
                     print(pxo)
                     break
-            print(r2.cmd("px 4 @ esp"))
             print("esil:{}".format(d.get('esil')))
             print("opcode:{}".format(d.get('opcode')))
             print(ao1)
             for e in es:
                 print("parsed esil:",end="")
                 print(e)
-                #print("dependency:{}".format(print_dependency(e, r2)))
-                #apply_dependency(e, r2, vdift)
+                """
+                print("dependency:{}".format(print_dependency(e, r2)))
+                apply_dependency(e, r2, vdift)
+                """
             print("---end x86 instruction---")
-            #except:
-            #e = sys.exc_info()[0]
-            #print(e)
-            #of.write("\n------end-------\n")
         except UnicodeError as e:
-            print("NOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO")
-            print("shit")
             print(e)
             exit()
     of.close()
     r2.quit()
+
+def run_ao_command(r2):
+    ao1 = r2.cmd("ao~esil,address,opcode")
+    d = parseao(ao1)
+    e = ''
+    to_continue = 1
+    if d.__contains__('esil'):
+        e = parse_esil(d.get('esil'),1)
+        dc = 1
+    else:
+        dc += 1
+        to_continue = 1
+        for i in range(5):
+            ao1 = r2.cmd("ao~esil,address,opcode")
+            d = parseao(ao1)
+            if type(d) == dict and d != {}:
+                print(d)
+                e = parse_esil(d.get('esil'),1)
+                to_continue = 0
+                dc = 1
+                break
+
 
 #seek through main and find the last ret
 def find_end(r2, orig_ao, ip):
