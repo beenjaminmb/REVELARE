@@ -46,7 +46,6 @@ def main():
     #ip = instruction pointer
     ip = getIPname(r2)
 
-    inum = 1
     eip = r2.cmd("dr?" + ip)#get instruction pointer
     r2.cmd("s "+eip) #seek to IP
     ao = r2.cmd("ao") #print ESIL and other info
@@ -55,46 +54,22 @@ def main():
     d = parseao(ao)
     end_addr = find_end(r2, ao, ip)
     vdift = dift_lib.DIFT()
-    dc = 0
-    while(dc != 10):
-        inum += 1
+    run_loop = 1
+    while(run_loop):
         try:
             #debug setp, seek to eip
             r2.cmd("ds;s `dr? {}`".format(ip))
             #this makes it so we only get esil and address info
-            ao1 = r2.cmd("ao~esil,address,opcode")
-            #print instruction number for debuggin, probably remove later
-            d = parseao(ao1)
-            print(d)
-            if d.__contains__('esil'):
-                e = parse_esil(d.get('esil'),1)
-                dc = 1
-            else:
-                dc += 1
-                to_continue = 1
-                for i in range(5):
-                    ao1 = r2.cmd("ao~esil,address,opcode")
-                    d = parseao(ao1)
-                    if type(d) == dict and d != {}:
-                        print(d)
-                        e = parse_esil(d.get('esil'),1)
-                        to_continue = 0
-                        dc = 1
-                        break
-                if to_continue:
-                    print("skipping:{}".format(d))
-                    continue
-            es = e[0]
+            ao_output, d, e, run_loop = run_ao_command(r2)
+            if not run_loop:
+                continue
+            esil_instructions = e[0]
             print("===start x86 instruction===")
-            for i in range(5):
-                pxo = r2.cmd("px 4 @ esp")
-                if pxo.startswith("- offset -"):
-                    print(pxo)
-                    break
+            print_stack(4, r2)
             print("esil:{}".format(d.get('esil')))
             print("opcode:{}".format(d.get('opcode')))
-            print(ao1)
-            for e in es:
+            print(ao_output)
+            for e in esil_instructions:
                 print("parsed esil:",end="")
                 print(e)
                 """
@@ -108,6 +83,13 @@ def main():
     of.close()
     r2.quit()
 
+def print_stack(n, r2):
+    for i in range(5):
+        pxo = r2.cmd("px {} @ esp".format(n))
+        if pxo.startswith("- offset -"):
+            print(pxo)
+            break
+
 def run_ao_command(r2):
     ao1 = r2.cmd("ao~esil,address,opcode")
     d = parseao(ao1)
@@ -115,19 +97,16 @@ def run_ao_command(r2):
     to_continue = 1
     if d.__contains__('esil'):
         e = parse_esil(d.get('esil'),1)
-        dc = 1
     else:
-        dc += 1
-        to_continue = 1
+        to_continue = 0
         for i in range(5):
             ao1 = r2.cmd("ao~esil,address,opcode")
             d = parseao(ao1)
             if type(d) == dict and d != {}:
-                print(d)
                 e = parse_esil(d.get('esil'),1)
-                to_continue = 0
-                dc = 1
+                to_continue = 1
                 break
+    return (ao1, d, e, to_continue)
 
 
 #seek through main and find the last ret
