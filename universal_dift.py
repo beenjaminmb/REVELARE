@@ -49,26 +49,28 @@ def main():
     eip = r2.cmd("dr?" + ip)#get instruction pointer
     r2.cmd("s "+eip) #seek to IP
     vdift = dift_lib.DIFT()
-    ao_output, d, e, run_loop = run_ao_command(r2)
+    ao_output, d, e, run_loop, skip = run_ao_command(r2)
     while(run_loop):
         try:
+            if skip:
+                r2.cmd("ds;s `dr? {}`".format(ip))
+                ao_output, d, e, run_loop, skip = run_ao_command(r2)
+                continue
             esil_instructions = e[0]
             print("===start x86 instruction===")
-            print_stack(4, r2)
+            #print_stack(4, r2)
             print("esil:{}".format(d.get('esil')))
             print("opcode:{}".format(d.get('opcode')))
             print(ao_output)
             for e in esil_instructions:
-                print("parsed esil:",end="")
-                print(e)
-                """
-                print("dependency:{}".format(print_dependency(e, r2)))
+                #print("parsed esil:",end="")
+                #print(e)
+                #print("dependency:{}".format(print_dependency(e, r2)))
                 apply_dependency(e, r2, vdift)
-                """
             print("---end x86 instruction---")
             r2.cmd("ds;s `dr? {}`".format(ip))
             #debug setp, seek to eip
-            ao_output, d, e, run_loop = run_ao_command(r2)
+            ao_output, d, e, run_loop, skip = run_ao_command(r2)
         except UnicodeError as e:
             print(e)
             exit()
@@ -88,6 +90,7 @@ def run_ao_command(r2):
     d = parseao(ao1)
     e = ''
     to_continue = 1
+    skip = 0
     if d.__contains__('esil'):
         e = parse_esil(d.get('esil'),1)
     else:
@@ -95,11 +98,16 @@ def run_ao_command(r2):
         for i in range(5):
             ao1 = r2.cmd("ao~esil,address,opcode")
             d = parseao(ao1)
-            if type(d) == dict and d != {}:
+            if type(d) == dict and d != {} and d.__contains__('esil'):
                 e = parse_esil(d.get('esil'),1)
                 to_continue = 1
                 break
-    return (ao1, d, e, to_continue)
+            elif d.__contains__('opcode'):
+                to_continue = 1
+                #print("skipped {}".format(d.get('opcode')))
+                skip = 1
+                break
+    return (ao1, d, e, to_continue, skip)
 
 
 #seek through main and find the last ret

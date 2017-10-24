@@ -112,9 +112,6 @@ class DIFT():
                 if tm == 1:
                     print("Integrety Check Failed exiting!")
                     print(from_taint_mark.get_taint_rep(0))
-                    for t in self.taint:
-                        print(t)
-                        print(self.taint[t])
                     return
         elif is_a_constant(toLocation):
             to_taint_mark.set_taint(int(toLocation, 16), False)
@@ -187,7 +184,7 @@ class DIFT():
         calc_tm = taint_mark()
         r = self.get_arg_length(opp)
         skip = 0
-        print("len opp was {}".format(r))
+        #print("len opp was {}".format(r))
         """
         if r >= self.min_size_cutoff:
             #skip the rest cause we are 32 or 64 bit and don't care

@@ -23,6 +23,7 @@ def esil_tuples(es):
 def print_dependency(tup,r2):
     opp = tup[0]
     ret_str = ""
+    print(tup)
 
     #first case is copy
     if opp == "=":
@@ -135,7 +136,6 @@ def apply_dependency(tup, r2, vdift):
         if type(dst) == tuple:
             dst = apply_dependency(dst, r2, vdift)
         #ret_val = "copy dependency(to={},from={})".format(dst,src)
-        print(dst)
         r, dst_len = get_reg_name(dst)
         ret_val = vdift.DIFT_copy_dependency(dst, src, dst_len, r2)
 
@@ -144,11 +144,24 @@ def apply_dependency(tup, r2, vdift):
         src = tup[1]
         if type(src) == tuple:
             src2 = apply_dependency(src, r2, vdift)
-            src = r2.cmd("ae {}".format(esil_from_tuple(src)))
+            #The following is necessary cause r2 seems to mess up
+            #what it returns after a while
+            for i in range(5):
+                t = r2.cmd("ae {}".format(esil_from_tuple(src)))
+                if not t.startswith("address"):
+                    src = t
+                    break
         else:
             src2 = src
             if is_reg(src):
-                src = r2.cmd("dr? {}".format(src))
+                #The following is necessary cause r2 seems to mess up
+                #what it returns after a while
+                #my calls after a while
+                for i in range(5):
+                    t = r2.cmd("dr? {}".format(src))
+                    if t.startswith("0x"):
+                        src = t
+                        break
         #ret_val = "load address dependency (address={},dataToCalcAdd={})".format(src,src2)
         ret_val = vdift.DIFT_load_address_dependency(src, src2, opp, r2)
 
@@ -248,7 +261,6 @@ def apply_dependency(tup, r2, vdift):
             #ecx = mem location of string
             #edx = number of bytes to write
             if a_val == 4:#WRITE
-                print("WRITING FILE")
                 ao = open("array_output", "a")
                 ecx = int(r2.cmd("dr? edx"), 16)
                 edx = int(r2.cmd("dr? ecx"), 16)
@@ -260,7 +272,6 @@ def apply_dependency(tup, r2, vdift):
             #ecx = buffer to read into
             #edx = number of bytes to read
             if a_val == 3:#READ
-                print("READING FILE")
                 edx = int(r2.cmd("dr? edx"), 16)
                 ecx = int(r2.cmd("dr? ecx"), 16)
                 vdift.DIFT_taint_source(ecx, edx)

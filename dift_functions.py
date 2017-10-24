@@ -34,7 +34,6 @@ class taint_mark():
     def get_taint_rep(self,i):
         if self.is_reg:
             # taint_mark is a register
-            print(self.reg)
             r,p = get_reg_name(self.reg)
             return(r,i)
         else:
@@ -202,7 +201,7 @@ class DIFT():
             to = self.taint.get(address_tm.get_taint_rep(i))
             frm = self.taint.get(calc_tm.get_taint_rep(i))
             self.taint["tmp1", i] = self.combine_taint(to,frm)
-            print(self.taint["tmp1" , i])
+            #print(self.taint["tmp1" , i])
 
         rt = taint_mark()
         rt.set_vals("tmp1", True)
@@ -304,6 +303,8 @@ class DIFT():
     #np.dot(x,y) = dot product
 
     def cossim(self, mat1, mat2):
+        if np.count_nonzero(mat2) == 0:
+            return ''
         denom = LA.norm(mat1) * LA.norm(mat2)
         ret = np.dot(mat1, mat2) / denom
         return ret
@@ -330,13 +331,15 @@ class DIFT():
 
     def combine_taint(self, mat1, mat2):
         if type(mat1) == self.arrtype  and type(mat2) != self.arrtype:
-            print("SHIT1")
-            print (mat1)
+            if self.debug_help:
+                print("SHIT1")
+                print (mat1)
             return mat1
         elif type(mat2) == self.arrtype and type(mat1) != self.arrtype:
-             print("SHIT2")
-             print(mat2)
-             return(mat2)
+            if self.debug_help:
+                print("SHIT2")
+                print(mat2)
+            return(mat2)
         elif type(mat1) != self.arrtype and type(mat2) != self.arrtype:
             return np.zeros(self.DIM)
 
