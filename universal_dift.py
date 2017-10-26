@@ -41,7 +41,7 @@ def main():
     r2.cmd("db main")# set breakpoint at main
     r2.cmd("dc") #run the program
 
-    print(r2.cmd("aaa; pdf")) #print memory map
+    #print(r2.cmd("aaa; pdf")) #print memory map
 
     #ip = instruction pointer
     ip = getIPname(r2)
@@ -57,17 +57,17 @@ def main():
                 ao_output, d, e, run_loop, skip = run_ao_command(r2)
                 continue
             esil_instructions = e[0]
-            print("===start x86 instruction===")
+            #print("===start x86 instruction===")
             #print_stack(4, r2)
-            print("esil:{}".format(d.get('esil')))
-            print("opcode:{}".format(d.get('opcode')))
-            print(ao_output)
+            #print("esil:{}".format(d.get('esil')))
+            #print("opcode:{}".format(d.get('opcode')))
+            #print(ao_output)
             for e in esil_instructions:
                 #print("parsed esil:",end="")
                 #print(e)
                 #print("dependency:{}".format(print_dependency(e, r2)))
                 apply_dependency(e, r2, vdift)
-            print("---end x86 instruction---")
+            #print("---end x86 instruction---")
             r2.cmd("ds;s `dr? {}`".format(ip))
             #debug setp, seek to eip
             ao_output, d, e, run_loop, skip = run_ao_command(r2)

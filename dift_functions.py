@@ -81,6 +81,8 @@ class DIFT():
             self.clear_taint(to_taint_mark)
             return
         else:
+            print(fromData)
+            print(type(fromData))
             print("NOPE")
             exit()
 
@@ -155,6 +157,8 @@ class DIFT():
             dst_tm.set_vals(arg1, True)
         else:
             print("The sky is falling!")
+            print(arg1)
+            print(arg2)
             exit()
 
         if is_a_constant(arg2):
@@ -241,8 +245,8 @@ class DIFT():
         return rt
 
     def DIFT_taint_source(self, startAddress, elements):
-        print(startAddress)
-        print(elements)
+        #print(startAddress)
+        #print(elements)
         for i in range (elements):
             self.taint[startAddress + i] = self.get_random_taint_vector()
             self.origtaint[startAddress + i] = self.taint[startAddress + i]
