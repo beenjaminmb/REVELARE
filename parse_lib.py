@@ -5,6 +5,16 @@ def main():
     # REP parsing
     print("deleted stuff")
 
+
+
+
+# class ParseLib:
+#     def __init__(self):
+#         """ 
+#         """
+#         self.parse_lib=None 
+
+
 def parse_and_print(es):
     print("------inst start-------")
     zs = parse_esil(es, "a")[0]
@@ -134,11 +144,16 @@ def apply_dependency(tup, r2, vdift):
         dst = tup[1]
         src = tup[2]
         if type(src) == tuple:
+            print('apply_dependancy.147. before call. type(src)=tuple, src={}'.format(src))
             src = apply_dependency(src, r2, vdift)
+            print('apply_dependancy.149. after call. new src={}'.format(src))
         if type(dst) == tuple:
+            print('apply_dependancy.151. before call. before call type(dst)=tuple, dst={}'.format(src))
             dst = apply_dependency(dst, r2, vdift)
+            print('apply_dependancy.153. before call. after call new dst={}'.format(src))
         #ret_val = "copy dependency(to={},from={})".format(dst,src)
         r, dst_len = get_reg_name(dst)
+        print('apply_dependancy.152.opp="=" src={}, dst={}, r={}'.format(src, dst, r))
         ret_val = vdift.DIFT_copy_dependency(dst, src, dst_len, r2)
 
     #catch load address dependencies
@@ -190,22 +205,31 @@ def apply_dependency(tup, r2, vdift):
         lhs = tup[1]
         rhs = tup[2]
         lhs2 = ""
+        print('apply_dependancy.204.is_sad: lhs={}, rhs={}'.format(lhs, rhs))
         if type(lhs) == tuple:
             lhs2 = apply_dependency(lhs, r2, vdift)
-            print("apply_dependency.195. lhs={}".format(type(lhs), lhs))
+            print("apply_dependency.206. type(lhs2)={}, lhs2={}".format(type(lhs2), lhs2))
             lhs = r2.cmd("ae {}".format(esil_from_tuple(lhs)))
+            print("apply_dependency.209. type(lhs2)={}, lhs={}".format(type(lhs), lhs))
         else:
             lhs2 = lhs
-            print("apply_dependency.199.else lhs={} {}".format(type(lhs), lhs))
+            print("apply_dependency.210.else lhs={} {}".format(type(lhs), lhs))
             lhs = r2.cmd("dr? {}".format(lhs))
+        if lhs.startswith('address'):
+            # BEN ADDED THIS CHECK
+            # Radare appears to return an address: 0XNNNNNNNNN\nopcode value
+            lhs = lhs.split(' ')
+            lhs = lhs[1].split('\n')
+            lhs = lhs[0]
+        print("apply_dependancy.212.else type(lhs)={}, lhs={}".format(type(lhs), lhs))
         #if the RHS is not in its simplest form
         if type(rhs) == tuple:
             rhs = apply_dependency(rhs, r2, vdift)
         #ret_val = "copy dependency(to={},from=store address dependency(data={},dataToCalcAdd={})))".format(lhs,rhs,lhs2)
-        print("apply_dependency.204 if type(rhs)==typle: rhs={}, lhs2={}, opp={}".format(rhs, lhs2, opp))
+        print("apply_dependency.217 if type(rhs)==typle: rhs={}, lhs2={}, opp={}".format(rhs, lhs2, opp))
         ret_val = vdift.DIFT_store_address_dependency(rhs, lhs2, opp, r2)
         #ret_val.len should work because its a taint mark and has a .len
-        print("apply_dependency.208: ret_val = store_address_dependancy(rhs, lhs2)={}".format(type(ret_val), ret_val))
+        print("apply_dependency.219: type(ret_val)={}, ret_val = store_address_dependancy(rhs, lhs2)={}, lhs={}".format(type(ret_val), ret_val, lhs))
         # ret_val.len is not returned properly
         ret_val = vdift.DIFT_copy_dependency(lhs, ret_val, ret_val.len, r2)
 
@@ -227,15 +251,17 @@ def apply_dependency(tup, r2, vdift):
                     rhs = "constant"
             #ret_val = "copy dependency(to={},from=(computation dependency ({},{}))))".format(lhs,lhs,rhs)
             ret_val = vdift.DIFT_computation_dependency(lhs, rhs, r2)
+            print('apply_dependancy.241. lhs={}, ret_val={}'.format(lhs, ret_val))
             ret_val = vdift.DIFT_copy_dependency(lhs, ret_val, ret_val.len, r2)
 
     # Will need to step instruction to see how many bytes were
     # actually read and written to and tell the calling function
     # to not "ds" for next instruction
     # need to consider other syscalls that are sources or sinks
-    if opp == "SPECIAL" or opp == "SYSCALL":
+    if opp == "SPECIAL" or opp == "SYSCALL" or opp == '$':
         a_reg = get_register_A_name(r2)
         a_val = int(r2.cmd("dr? {}".format(a_reg)), 16)
+        print('apply_dependency.259: a_reg={}, a_val={}'.format(a_reg, a_val))
         if a_reg == "rax":
             #syscall for x86_64 rax = 1 means write
             #rdi = file descriptor to write to
@@ -243,8 +269,9 @@ def apply_dependency(tup, r2, vdift):
             #rdx = number of bytes to write
             if a_val == 1:#WRITE
                 ao = open("array_output", "a")
-                rsi = int(r2.cmd("dr? rsi"), 16)
-                rdx = int(r2.cmd("dr? rdx"), 16)
+                # write (fd, buf, count)
+                rsi = int(r2.cmd("dr? rsi"), 16) # buf
+                rdx = int(r2.cmd("dr? rdx"), 16) # count
                 if vdift.debug_help:
                     print(rsi)
                     print(rdx)
@@ -258,8 +285,9 @@ def apply_dependency(tup, r2, vdift):
             #rsi = buffer to read into
             #rdx = number of bytes to read
             if a_val == 0:#READ
-                rdx = int(r2.cmd("dr? rdx"), 16)
-                rsi = int(r2.cmd("dr? rsi"), 16)
+                # read(fd, buf, count)
+                rdx = int(r2.cmd("dr? rdx"), 16) # count
+                rsi = int(r2.cmd("dr? rsi"), 16) # buf
                 vdift.DIFT_taint_source(rsi, rdx)
 
         if a_reg == "eax":
@@ -282,8 +310,26 @@ def apply_dependency(tup, r2, vdift):
                 edx = int(r2.cmd("dr? edx"), 16)
                 ecx = int(r2.cmd("dr? ecx"), 16)
                 vdift.DIFT_taint_source(ecx, edx)
-    else:
-        print("Ben's: Opp={}".format(opp))
+        if a_reg == "x8":
+            if a_val == 63: # READ
+               count = int(r2.cmd("dr? x2"), 16) # count
+               buf   = int(r2.cmd("dr? x1"), 16) # buf
+               vdift.DIFT_taint_source(buf, count)
+               # 63 = syscall read according to include/uapi/asm-generic/usid.h:203
+               # TODO: Find relavant registers, DIFT_taint_source()regs 
+            if a_val == 64: # WRITE
+               ao = open("array_output", "a")
+               count = int(r2.cmd("dr? x2"), 16) # count
+               buf =   int(r2.cmd("dr? x1"), 16)
+               vdift.DIFT_print_cossim(buf, count, ao)
+               ao.close()
+               # 64 = syscall write " " 
+               # TODO: Find find relavant registers again, open a file to write the cossin similiarity to, and finished. 
+            print("apply_dependency.257. opp={}, tup={}".format(opp, tup))
+    if opp=='DUP':
+        src = tup[1]
+        ret_val=apply_dependency(src, r2, vdift)
+        print("apply_dependancy.326: opp={}, ret_val={}, tup={}".format(opp, ret_val, tup))
     return ret_val
 
 #get eax rax; arch dependant
@@ -293,8 +339,15 @@ def get_register_A_name(r2):
         return "eax"
     if "x86_64" in iA:
         return "rax"
+    print("get_register_A_name.317. iA={}".format(iA))
+    if "arm_64" in iA:
+        return "x8"
+    else:
+        return "x8"
 
 def is_a_constant(s):
+    if type(s) == str:
+        print('is_a_constant.308: type(s)={}, startswith()={}, s = {}'.format(type(s), s.startswith("0x"), s))
     if s == "constant":
         return True
     if type(s) != str:
@@ -308,13 +361,13 @@ def is_a_constant(s):
     return False
 
 def is_lad(opp):
-    instructions = set(["[]", "[1]", "[2]", "[4]", "[8]"])
+    instructions = set(["[]", "[1]", "[2]", "[4]", "[8]", "[16]"])
     if opp in instructions:
         return True
     return False
 
 def is_sad(opp):
-    instructions = set(["=[]", "=[1]", "=[2]", "=[4]", "=[8]"])
+    instructions = set(["=[]", "=[1]", "=[2]", "=[4]", "=[8]", "=[16]"])
     if opp in instructions:
         return True
     return False
@@ -371,38 +424,64 @@ def pprint(tup):
             #the arguemnt is not an instruction
             print(inst + " " + arg, end="")
 
+# def parse_esil(arch='arm64', inp, regs):
+#     """
+#     TODO: Implement generic interface for parsing esil based on architecture?
+#     """
+#     if 'x86' in  arch:
+#         return x86_parse_esil()
+#             print("opcode:{}".format(d.get('opcode')))
+
+
+# def _parse_x86_esil():
+#     """
+#     """
+
 
 def parse_esil(inp, regs):
     s = inp.split(",")
+    r=None
     ret_list = []
     argstack = []
-    
+    print('parse_esil.401. s={}, regs={}'.format(s, regs))  
     for i in s:
-        if is_instruction(i):
+        if i == '$':
+            # BEN ADDED THIS BECUASE $ is syscall in esil and ARM compiles to that.
+            print('parse_esil.419: i={}, argstack={}, ret_list={}, s={}'.format(i, argstack, ret_list, s))
+            r = ("SPECIAL", argstack.pop())
+            ret_list.append(r) 
+        elif is_instruction(i):
             #pop args off stack
-            if arg_number(i) == 1:
+            if arg_number(i) == 0:
+                dup = argstack[-1]
+                r = (i, dup)
+            elif arg_number(i) == 1:
                 #pop off 1 arg
                 r = (i, argstack.pop())
             else:
+                # Is the & operation a 2 or 1 instruction operation?
                 #pop off 2 args
+                print("parse_esil.429.i={}, arg_number(i)={}, len(argstack)={}, argstack={}".format(i, arg_number(i), len(argstack),  argstack))
                 r = (i, argstack.pop(), argstack.pop())
             #if it is an opperation that sets a value or SYSCALL
-            if is_computation_dep(i) or is_store_address_dep(i) or is_copy_dep(i) or i == "SPECIAL":
+            if is_computation_dep(i, argstack) or is_store_address_dep(i) or is_copy_dep(i) or i == "SPECIAL": 
                 ret_list.append(r)
+                print('parse_esil.434: i={}, r={}, argstack={}, ret_list={}'.format(i, r, argstack, ret_list))
             #if it is an opperation that puts its value on the stack
             else:
                 argstack.append(r)
+                print('parse_esil.438.instruction not comp-storaddr-copy:i={}, r={},  argstack={}, ret_list={}'.format(i, r, argstack, ret_list))
         else:#is arg
-            #print("{} is arg".format(i))
             argstack.append(i)
+            print('parse_esil.441.not instruction: i={}, r={}, argstack={}, ret_list={}'.format(i, r, argstack, ret_list))
     return ret_list, argstack
 
 def is_instruction(i):
     instructions = ["=", "-","==", "<=", "<", ">=", ">", "<<", ">>", "<<<", "<<<<",
                     ">>>", ">>>>","&", "|", "^", "+", "-", "*", "/", "%", "!", "++", "--",
                     "+=", "-=", "/=", "%=", "*=", "<<=", ">>=", "&=", "|=", "^=",
-                    "++=", "--=", "!=", "=[]", "=[*]", "=[1]", "=[2]", "=[4]", "=[8]",
-                    "[]", "[1]", "[2]","[4]", "[8]", "SPECIAL"]
+                    "++=", "--=", "!=", "=[]", "=[*]", "=[1]", "=[2]", "=[4]", "=[8]", "=[16]",
+                    "[]", "[1]", "[2]","[4]", "[8]", "[16]", "SPECIAL", "DUP"]
     if i in instructions:
         return True
     return False
@@ -419,21 +498,27 @@ def is_address_dep(i):
     return False
 
 def is_store_address_dep(i):
-    instructions = set(["=[]", "=[1]", "=[2]", "=[4]", "=[8]"])
+    instructions = set(["=[]", "=[1]", "=[2]", "=[4]", "=[8]", "=[16]"])
     if i in instructions:
         return True
     return False
 
 def is_load_address_dep(i):
-    instructions = set(["[]", "[1]", "[2]", "[4]", "[8]"])
+    instructions = set(["[]", "[1]", "[2]", "[4]", "[8]", "[16]"])
     if i in instructions:
         return True
     return False
 
-def is_computation_dep(i):
+def is_computation_dep(i, argstack=None):
     instructions = set(["<=", ">=","+=", "-=", "/=", "%=","<<=", ">>=", "&=",
         "|=", "^=", "++=","--=", "!="])
+    # BEN: Added the check for all immediate operands below because TBZ/TBNZ instructions generate %d, 1, <<=, RN, &, ... in anal_arm_cs.c
+    has_all_imm_operands = True
+    if not (argstack == [] or argstack == None):
+        has_all_imm_operands = all(list([not is_reg(i) for i in argstack if type(i) != tuple]))
     if i in instructions:
+        if has_all_imm_operands:
+            return False
         return True
     return False
 
@@ -466,7 +551,8 @@ def is_reg(i):
                 "xmm9"])
     arm_regs = set(['x{}'.format(i) for i in range(32)])
     arm_regs |= set(['w{}'.format(i) for i in range(32)])
-    arm_regs |= set(['sp', 'lr', 'pc', 'xzr', 'wzr'])
+    arm_regs |= set(['sp', 'lr', 'pc', 'xzr', 'wzr', 'tmp'])
+    arm_regs |= set(['q{}'.format(i) for i in range(32)])
     regs |= arm_regs
     if i in regs:
         return True
@@ -481,9 +567,12 @@ def is_eflag(r):
     return False
 
 def arg_number(arg):
-    one_args = set(["[]", "[1]", "[2]", "[4]", "[8]", "push", "!", "++=",
+    zero_args =set(["DUP"])
+    one_args = set(["[]", "[1]", "[2]", "[4]", "[8]", "[16]", "push", "!", "++=",
         "--=","SPECIAL"])
-
+    print("arg_number.565. arg={}".format(arg))
+    if arg in zero_args:
+        return 0
     if arg in one_args:
         return 1
     return 2

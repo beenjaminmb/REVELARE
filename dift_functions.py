@@ -80,8 +80,8 @@ class DIFT():
         from_taint_mark = taint_mark()
 
         if True:
-            print("VARIABALES:\n\ttoLocation:{}\n\tfromData: {}\n\tto_len: {}\n\tr2: {}".format(
-                toLocation, fromData, to_len, r2))
+            print("DIFT_copy_dependancy:83. toLocation={}, fromData={}, to_len={}".format(
+                toLocation, fromData, to_len))
         #fromData can be a reg, a mem location or a taint_mark from a previous
         #calculation
         if type(fromData) == taint_mark:
@@ -96,13 +96,8 @@ class DIFT():
             return None
 
         else:
-            print("fromData: {}".format(fromData))
-            print("type(fromData): {}".format(type(fromData)))
-            print("toData: {}".format(toLocation))
-            print("type(toData): {}".format(type(toLocation)))
-
-            print("NOPE")
-            # exit()
+            print("DIFT_copy_dependency:100.FUCK toLocation={}, fromData={}".format(toLocation, fromData))
+            exit()
 
         if self.debug_help:
             print("TO LOCATION")
@@ -142,7 +137,7 @@ class DIFT():
         elif type(toLocation) == taint_mark:
             r = toLocation.len
         else:
-            print("SHIT BALLS. Make sure toLocation is not a taint_mark?")
+            print("DIFT_copy_dependancy.140: type(toLocation)={}, toLocation={}, is_a_constant(toLocation)={}".format(type(toLocation), toLocation, is_a_constant(toLocation)))
             exit()
         if r == 0:
             r = get_reg_length(toLocation)
@@ -191,9 +186,7 @@ class DIFT():
             dst_tm.set_vals(dst, True)
         else:
             print("DIFT_computation_dependency.193. dst={}, src={}".format(dst, src))
-            print(dst)
-            print(src)
-            exit()
+            # exit()
 
         if is_a_constant(src):
             #if arg2 is a constant we just return dst_tm
@@ -289,8 +282,7 @@ class DIFT():
         return rt
 
     def DIFT_taint_source(self, startAddress, elements):
-        #print(startAddress)
-        #print(elements)
+        print("DIFT_taint_source.285. startAddress={}, elements={}".format(startAddress, elements))
         for i in range (elements):
             self.taint[startAddress + i] = self.get_random_taint_vector()
             self.origtaint[startAddress + i] = self.taint[startAddress + i]
@@ -328,13 +320,16 @@ class DIFT():
         xaxis = in bytes
         yaxis = out bytes
         """
+        address = address + 8
+        print("DIFT_print_cossim.323: address={}, length={}, taint={}\n\n\n\torigtaint={}".format(address, length, self.taint, self.origtaint))
         inbytes = self.origtaint.values()
         for i in range(length):
             outbyte = self.taint.get(address + i)
+            print("DIFT_print_cossim.327: address={}, outbytes={}".format(address + i, outbyte))
             for b in inbytes:
                 val = self.cossim(b,outbyte)
+                #  print("\tDIFT_print_cossim.330: address={}, val={}, outbytes={}, b={}\n".format(address + i, val, outbyte, b))
                 fd.write(str(val) + " ")
-                print(val, end="\t")
             print()
             fd.write("\n")
 

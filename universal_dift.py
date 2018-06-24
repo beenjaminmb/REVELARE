@@ -55,25 +55,29 @@ def main():
             if skip:
                 # Debug step
                 r2.cmd("ds;s `dr? {}`".format(ip))
+                print("universal_dift.run_loop.58. skip=True")
                 ao_output, d, e, run_loop, skip = run_ao_command(r2)
+                print('main.60. d={}. e={}'.format(d, e))
                 continue
             esil_instructions = e[0]
             # print("===start x86 instruction===")
             # print_stack(4, r2)
-            print("esil:{}".format(d.get('esil')))
-            print("opcode:{}".format(d.get('opcode')))
+            print("main.64 e={}, opecode={}, esil:{}".format(e, d.get('opcode'), d.get('esil')))
             # print(ao_output)
             for e in esil_instructions:
+                # pass
                 # print("parsed esil:",end="")
                 # print(e)
-                print("FOO BAR: {}".format(e))
+                # print("FOO BAR: {}".format(e))
                 # print("dependency : {}".format(print_dependency(e, r2)))
                 # This is the important dift function call.
+                print("main.73.apply_dependancy: e={}".format(e))
                 apply_dependency(e, r2, vdift)
-            #print("---end x86 instruction---")
+                # print("---end x86 instruction---")
             r2.cmd("ds;s `dr? {}`".format(ip))
             #debug setp, seek to eip
             ao_output, d, e, run_loop, skip = run_ao_command(r2)
+            print('main.80: d={}, e={}'.format(d, e))
         except UnicodeError as e:
             print(e)
             exit()
@@ -100,7 +104,9 @@ def run_ao_command(r2):
     to_continue = 1
     skip = 0
     if d.__contains__('esil'):
-        e = parse_esil(d.get('esil'),1)
+        """ """
+        e = parse_esil(d.get('esil'),1) # BEN commented this out
+        print("universal_dift.run_ao_command.109: d={}, e={}".format(d, e))
     else:
         to_continue = 0
         # The fuck is this crap? Why 5?!?!?!?
@@ -108,7 +114,7 @@ def run_ao_command(r2):
             ao1 = r2.cmd("ao~esil,address,opcode")
             d = parseao(ao1)
             if type(d) == dict and d != {} and d.__contains__('esil'):
-                e = parse_esil(d.get('esil'),1)
+                e = parse_esil(d.get('esil'),1) # BEN commented this out
                 to_continue = 1
                 break
             elif d.__contains__('opcode'):
