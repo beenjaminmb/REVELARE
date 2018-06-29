@@ -144,7 +144,7 @@ def apply_dependency(tup, r2, vdift):
         dst = tup[1]
         src = tup[2]
         if type(src) == tuple:
-            print('apply_dependancy.147. before call. type(src)=tuple, src={}'.format(src))
+            print('apply_dependancy.148. before call. type(src)=tuple, src={}'.format(src))
             src = apply_dependency(src, r2, vdift)
             print('apply_dependancy.149. after call. new src={}'.format(src))
         if type(dst) == tuple:
@@ -153,11 +153,13 @@ def apply_dependency(tup, r2, vdift):
             print('apply_dependancy.153. before call. after call new dst={}'.format(src))
         #ret_val = "copy dependency(to={},from={})".format(dst,src)
         r, dst_len = get_reg_name(dst)
-        print('apply_dependancy.152.opp="=" src={}, dst={}, r={}'.format(src, dst, r))
+        print('apply_dependancy.156. before copy dependency. opp="=" src={}, dst={}, r={}'.format(src, dst, r))
         ret_val = vdift.DIFT_copy_dependency(dst, src, dst_len, r2)
+        print('apply_dependancy.158. after copy dependency. opp="=" ret_val={}'.format(ret_val))
 
     #catch load address dependencies
     if is_lad(opp):
+        print('apply_dependancy.161.is_lad. opp={}, tup={}'.format(opp, tup))
         src = tup[1]
         if type(src) == tuple:
             src2 = apply_dependency(src, r2, vdift)
@@ -187,6 +189,7 @@ def apply_dependency(tup, r2, vdift):
     if simple_computation(opp):
         lhs = tup[1]
         rhs = tup[2]
+        print("apply_dependancy.192.simple_computation. lhs={}, rhs={}".format(lhs, rhs))
         #if the LHS is not in its simplest form
         if type(lhs) == tuple:
             lhs = apply_dependency(lhs, r2, vdift)
@@ -197,6 +200,9 @@ def apply_dependency(tup, r2, vdift):
             return rhs
         if is_a_constant(rhs) and not is_a_constant(lhs):
             return lhs
+        if is_a_constant(rhs) and is_a_constant(lhs) and (lhs == -1 or lhs =='-1'):
+           print('apply_dependancy.204.weird simple_compuatation case')
+           return str(int(lhs) ^ int(rhs))
         #ret_val = "computation dependency ({},{})".format(lhs,rhs)
         ret_val = vdift.DIFT_computation_dependency(lhs, rhs, r2)
 
@@ -316,7 +322,6 @@ def apply_dependency(tup, r2, vdift):
                buf   = int(r2.cmd("dr? x1"), 16) # buf
                vdift.DIFT_taint_source(buf, count)
                # 63 = syscall read according to include/uapi/asm-generic/usid.h:203
-               # TODO: Find relavant registers, DIFT_taint_source()regs 
             if a_val == 64: # WRITE
                ao = open("array_output", "a")
                count = int(r2.cmd("dr? x2"), 16) # count
@@ -324,12 +329,11 @@ def apply_dependency(tup, r2, vdift):
                vdift.DIFT_print_cossim(buf, count, ao)
                ao.close()
                # 64 = syscall write " " 
-               # TODO: Find find relavant registers again, open a file to write the cossin similiarity to, and finished. 
-            print("apply_dependency.257. opp={}, tup={}".format(opp, tup))
-    if opp=='DUP':
-        src = tup[1]
-        ret_val=apply_dependency(src, r2, vdift)
-        print("apply_dependancy.326: opp={}, ret_val={}, tup={}".format(opp, ret_val, tup))
+            print("apply_dependency.328. opp={}, tup={}".format(opp, tup))
+    # if opp=='DUP':
+    #     src = tup[1]
+    #     ret_val=apply_dependency(src, r2, vdift)
+    print("apply_dependancy.326: opp={}, ret_val={}, tup={}".format(opp, ret_val, tup))
     return ret_val
 
 #get eax rax; arch dependant
@@ -445,6 +449,8 @@ def parse_esil(inp, regs):
     argstack = []
     print('parse_esil.401. s={}, regs={}'.format(s, regs))  
     for i in s:
+        if type(i) == str and i =='':
+            continue
         if i == '$':
             # BEN ADDED THIS BECUASE $ is syscall in esil and ARM compiles to that.
             print('parse_esil.419: i={}, argstack={}, ret_list={}, s={}'.format(i, argstack, ret_list, s))
@@ -454,7 +460,7 @@ def parse_esil(inp, regs):
             #pop args off stack
             if arg_number(i) == 0:
                 dup = argstack[-1]
-                r = (i, dup)
+                r = dup
             elif arg_number(i) == 1:
                 #pop off 1 arg
                 r = (i, argstack.pop())
@@ -616,12 +622,12 @@ def get_x86_64_reg_name(reg):
     start = ""
     end = ""
     gprs = set(["a","b","c","d"])
-    if reg.startswith("tmp"):
-        print("515. if get_reg_name : reg.startswith('tmp') {}".format(reg))
+    if reg.startswith("vdtmp"):
+        print("get_x86_64_reg_name.622. if get_reg_name : reg.startswith('vdtmp') {}".format(reg))
         return (reg, 0)
-    if reg.endswith("tmp"):
+    if reg.endswith("vdtmp"):
         # Haven't hit this case yet....
-        print("519. or if get_reg_name : reg.endswith('tmp') {}".format(reg))
+        print("get_x86_64_reg_name. or if get_reg_name : reg.endswith('vdtmp') {}".format(reg))
         return (reg, 3)
     if len(reg) == 2:
         midletter = reg[0]
