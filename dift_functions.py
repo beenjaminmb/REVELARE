@@ -73,13 +73,15 @@ class DIFT():
             self.taint[mem_taint.get_taint_rep(i)] = \
                 self.get_random_taint_vector()
 
-    def DIFT_copy_dependency(self, toLocation, fromData, to_len, r2, debug=False):
+    def DIFT_copy_dependency(self, toLocation, fromData, to_len, r2, debug=False, space=''):
         # Ignore xmm registers.
         r = 0
         to_taint_mark = taint_mark()
         from_taint_mark = taint_mark()
-
-        print("DIFT_copy_dependancy:83. toLocation={}, type()={}, fromData={}, type={},  to_len={}".format(toLocation, type(toLocation), fromData, type(fromData), to_len))
+        space += ' '
+        # toLocation=w2
+        # fromData=vdtmp1 // The taint we want to propogate from the add ldrb w2, w1, w0
+        print(space + "DIFT_copy_dependancy:83. toLocation={}, type()={}, fromData={}, type={},  to_len={}".format(toLocation, type(toLocation), fromData, type(fromData), to_len))
         #fromData can be a reg, a mem location or a taint_mark from a previous
         #calculation
         # toLocation=tmp, fromData=sp (offset of 44)
@@ -95,7 +97,7 @@ class DIFT():
             return None
 
         else:
-            print("DIFT_copy_dependency:100.FUCK toLocation={}, fromData={}".format(toLocation, fromData))
+            print(space + "DIFT_copy_dependency:100.FUCK toLocation={}, fromData={}".format(toLocation, fromData))
             exit()
 
         if self.debug_help:
@@ -125,6 +127,7 @@ class DIFT():
                     type(self.taint.get(from_taint_mark.get_taint_rep(0))),
                     self.arrtype)
                 )
+            print(space + 'DIFT_copy_dependancy.130. return nothing {}'.format(from_taint_mark.is_init))
             return
 
         #toLocation can only be a register or a mem location I think
@@ -136,27 +139,26 @@ class DIFT():
         elif type(toLocation) == taint_mark:
             r = toLocation.len
         else:
-            print("DIFT_copy_dependancy.140: type(toLocation)={}, toLocation={}, is_a_constant(toLocation)={}".format(type(toLocation), toLocation, is_a_constant(toLocation)))
+            print(space + "DIFT_copy_dependancy.140: type(toLocation)={}, toLocation={}, is_a_constant(toLocation)={}".format(type(toLocation), toLocation, is_a_constant(toLocation)))
             exit()
         if r == 0:
             r = get_reg_length(toLocation)
-
+        
+        print(space + 'DIFT_copy_dependancy.146. r={}'.format(r))
         #Do the actual taint copying
         for i in range(r):
             to = to_taint_mark.get_taint_rep(i)
             frm = from_taint_mark.get_taint_rep(i)
-            if self.debug_help:
-                print("TO:")
-                print(to)
-                print("FROM")
-                print(frm)
+            print(space + 'DIFT_copy_dependancy.152. to={}, from={}'.format(to, frm))
             try:
                 self.taint[to] = self.taint[frm]
+                print(space + 'DIFT_copy_dependancy.155. taint[to]=taint=[frm], taint[to]={}, taint[frm]={}'.format(self.taint[to], self.taint[frm]))
                 #print(self.taint[to])
             except KeyError:
+                print(space + 'DIFT_copy_dependancy.158. KeyError')
                 #continue
                 break
-
+        # print(space + "DIFT_copy_dependancy.161. to={}, r={}, self.taint[to]".format(to, r, self.taint[to])) 
     #need to make sure that tm actuall exists I think
     def clear_taint(self, tm):
         l = 0
@@ -215,7 +217,8 @@ class DIFT():
         address_tm.set_vals(int(address, 16), False)
         calc_tm = taint_mark()
         r = self.get_len(opp)
-        print("DIFT_load_address_dependancy.219. address={}, calcAddress={}, opp={}".format(address,calcAddress,opp))
+        taint_rep = calcAddress.get_taint_rep(0) if type(calcAddress) ==taint_mark else calcAddress
+        print("DIFT_load_address_dependancy.219. address={}, calcAddress={}, opp={}, r={}".format(address,taint_rep,opp, r))
         if type(calcAddress) == taint_mark:
             calc_tm = calcAddress
         elif is_reg(calcAddress):
@@ -301,7 +304,9 @@ class DIFT():
 
     def get_len(self, arg):
         #if we have a tupel
-        if type(arg) == tuple:
+        if type(arg) == tuple or (type(arg)==str and (arg.startswith('[') or arg.startswith('=['))):
+            if type(arg)==str:
+                return get_arg_length(arg)
             return get_arg_length(arg[0])
         else:
             return get_reg_length(arg)
@@ -372,9 +377,10 @@ class DIFT():
 
 
 def get_arg_length(arg):
+    print('get_arg_length.378. type(arg)={}, arg={}'.format(type(arg), arg))
     if arg=="[16]" or arg == "=[16]":
         return 16
-    if arg == "[]" or arg == "[8]" or arg == "=[]" or arg == "=[8]":
+    elif arg == "[]" or arg == "[8]" or arg == "=[]" or arg == "=[8]":
         return 8
     elif arg == "[4]" or arg == "=[4]":
         return 4
@@ -396,7 +402,9 @@ def get_arm_reg_length(reg):
     
 
 def get_reg_length(reg):
-    return get_arm_reg_length(reg)
+    ret = get_arm_reg_length(reg)
+    print("get_reg_length.403.type(reg)={}, reg={}, ret={}".format(type(reg), reg, ret))
+    return ret
 
 def get_x86_reg_length(reg):
     if reg.startswith("r") and not reg[1].isdigit():

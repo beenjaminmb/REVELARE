@@ -169,6 +169,26 @@ def parseao(info):
         for s in sinfo:
             sl = s.split(":")
             d[sl[0].strip()]=sl[1].strip()
+        is_ldr = d.get('opcode') and 'str' in d['opcode']
+        if is_ldr:
+            # 'str w2, [x1, x2]'
+            # ['', '[x1','x2]']
+            is_immediate=False
+            opcodes = d['opcode'].split(',')
+            print('parseao.178.is_ldr.opcodes={}, d={}'.format(opcodes, d))
+            if len(opcodes) == 3:
+                offset = opcodes[2].strip()
+                if offset.startswith('0x') or offset.startswith('#') or (offset[0] in set([str(i) for i in range(10)])):
+                    is_immediate=True
+            if len(opcodes) in [2, 4]:
+                    return d
+            print('parseao.183.is_ldr.is_immediate={}'.format(is_immediate))
+            if not is_immediate and d.get('esil'):
+                esil = d['esil'].split(',')
+                esil=[esil[0], esil[1][1:]] + esil[2:] 
+                d['esil']=','.join(esil)
+            print('parseao.188.is_ldr. d={}'.format(d))
+            
         return d
     except IndexError:
         return ''

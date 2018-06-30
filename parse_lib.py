@@ -135,34 +135,35 @@ def print_dependency(tup,r2):
     return ret_str
 
 
-def apply_dependency(tup, r2, vdift):
+def apply_dependency(tup, r2, vdift, *largs):
     opp = tup[0]
     ret_val = ""
-
+    space = largs[0] if largs and len(largs) > 0 else ''
+    space += ' '
     #first case is copy
     if opp == "=":
         dst = tup[1]
         src = tup[2]
         if type(src) == tuple:
-            print('apply_dependancy.148. before call. type(src)=tuple, src={}'.format(src))
-            src = apply_dependency(src, r2, vdift)
-            print('apply_dependancy.149. after call. new src={}'.format(src))
+            print(space + 'apply_dependancy.148. before call. type(src)=tuple, src={}'.format(src))
+            src = apply_dependency(src, r2, vdift, space)
+            print(space + 'apply_dependancy.150. after call. new src={}'.format(src))
         if type(dst) == tuple:
-            print('apply_dependancy.151. before call. before call type(dst)=tuple, dst={}'.format(src))
-            dst = apply_dependency(dst, r2, vdift)
-            print('apply_dependancy.153. before call. after call new dst={}'.format(src))
+            print(space + 'apply_dependancy.152. before call. before call type(dst)=tuple, dst={}'.format(src))
+            dst = apply_dependency(dst, r2, vdift, space)
+            print(space + 'apply_dependancy.154. before call. after call new dst={}'.format(src))
         #ret_val = "copy dependency(to={},from={})".format(dst,src)
         r, dst_len = get_reg_name(dst)
-        print('apply_dependancy.156. before copy dependency. opp="=" src={}, dst={}, r={}'.format(src, dst, r))
-        ret_val = vdift.DIFT_copy_dependency(dst, src, dst_len, r2)
-        print('apply_dependancy.158. after copy dependency. opp="=" ret_val={}'.format(ret_val))
+        print(space + 'apply_dependancy.157. before copy dependency. opp="=" src={}, dst={}, r={}'.format(src, dst, r))
+        ret_val = vdift.DIFT_copy_dependency(dst, src, dst_len, r2, space=space)
+        print(space + 'apply_dependancy.159. after copy dependency. opp="=" ret_val={}'.format(ret_val))
 
     #catch load address dependencies
     if is_lad(opp):
-        print('apply_dependancy.161.is_lad. opp={}, tup={}'.format(opp, tup))
+        print(space  + 'apply_dependancy.163.is_lad. opp={}, tup={}'.format(opp, tup))
         src = tup[1]
         if type(src) == tuple:
-            src2 = apply_dependency(src, r2, vdift)
+            src2 = apply_dependency(src, r2, vdift, space)
             #The following is necessary cause r2 seems to mess up
             #what it returns after a while
             for i in range(5):
@@ -181,6 +182,7 @@ def apply_dependency(tup, r2, vdift):
                     if t.startswith("0x"):
                         src = t
                         break
+        print(space + "apply_dependancy.185.is_lad. src={}, src2={}".format(src, src2))
         #ret_val = "load address dependency (address={},dataToCalcAdd={})".format(src,src2)
         ret_val = vdift.DIFT_load_address_dependency(src, src2, opp, r2)
 
@@ -189,37 +191,38 @@ def apply_dependency(tup, r2, vdift):
     if simple_computation(opp):
         lhs = tup[1]
         rhs = tup[2]
-        print("apply_dependancy.192.simple_computation. lhs={}, rhs={}".format(lhs, rhs))
+        print(space + "apply_dependancy.193.simple_computation. lhs={}, rhs={}".format(lhs, rhs))
         #if the LHS is not in its simplest form
         if type(lhs) == tuple:
-            lhs = apply_dependency(lhs, r2, vdift)
+            lhs = apply_dependency(lhs, r2, vdift, space)
         #if the RHS is not in its simplest form
         if type(rhs) == tuple:
-            rhs = apply_dependency(rhs, r2, vdift)
+            rhs = apply_dependency(rhs, r2, vdift, space)
         if is_a_constant(lhs) and not is_a_constant(rhs):
+            print(space + 'apply_dependancy.202. lhs is constant and rhs is not a constant')
             return rhs
         if is_a_constant(rhs) and not is_a_constant(lhs):
+            print(space, 'apply_dependancy.205. rhs is a constant and lhs is not a constant')
             return lhs
         if is_a_constant(rhs) and is_a_constant(lhs) and (lhs == -1 or lhs =='-1'):
-           print('apply_dependancy.204.weird simple_compuatation case')
            return str(int(lhs) ^ int(rhs))
         #ret_val = "computation dependency ({},{})".format(lhs,rhs)
         ret_val = vdift.DIFT_computation_dependency(lhs, rhs, r2)
-
+        print(space + 'apply_dependancy.211.simple_computation.opp={}, ret_val={}, lhs={}, rhs={}'.format(opp, ret_val, lhs, rhs))
     #Is a store address dependency
     if is_sad(opp):
         lhs = tup[1]
         rhs = tup[2]
         lhs2 = ""
-        print('apply_dependancy.204.is_sad: lhs={}, rhs={}'.format(lhs, rhs))
+        print(space + 'apply_dependancy.217.is_sad: lhs={}, rhs={}'.format(lhs, rhs))
         if type(lhs) == tuple:
-            lhs2 = apply_dependency(lhs, r2, vdift)
-            print("apply_dependency.206. type(lhs2)={}, lhs2={}".format(type(lhs2), lhs2))
+            lhs2 = apply_dependency(lhs, r2, vdift, space)
+            print(space + "apply_dependency.220. type(lhs2)={}, lhs2={}".format(type(lhs2), lhs2))
             lhs = r2.cmd("ae {}".format(esil_from_tuple(lhs)))
-            print("apply_dependency.209. type(lhs2)={}, lhs={}".format(type(lhs), lhs))
+            print(space + "apply_dependency.222. type(lhs2)={}, lhs={}".format(type(lhs), lhs))
         else:
             lhs2 = lhs
-            print("apply_dependency.210.else lhs={} {}".format(type(lhs), lhs))
+            print(space + "apply_dependency.225.else lhs={} {}".format(type(lhs), lhs))
             lhs = r2.cmd("dr? {}".format(lhs))
         if lhs.startswith('address'):
             # BEN ADDED THIS CHECK
@@ -227,17 +230,17 @@ def apply_dependency(tup, r2, vdift):
             lhs = lhs.split(' ')
             lhs = lhs[1].split('\n')
             lhs = lhs[0]
-        print("apply_dependancy.212.else type(lhs)={}, lhs={}".format(type(lhs), lhs))
+        print(space + "apply_dependancy.233.else type(lhs)={}, lhs={}".format(type(lhs), lhs))
         #if the RHS is not in its simplest form
         if type(rhs) == tuple:
-            rhs = apply_dependency(rhs, r2, vdift)
+            rhs = apply_dependency(rhs, r2, vdift, space)
         #ret_val = "copy dependency(to={},from=store address dependency(data={},dataToCalcAdd={})))".format(lhs,rhs,lhs2)
-        print("apply_dependency.217 if type(rhs)==typle: rhs={}, lhs2={}, opp={}".format(rhs, lhs2, opp))
+        print(space + "apply_dependency.238 if type(rhs)==typle: rhs={}, lhs2={}, opp={}".format(rhs, lhs2, opp))
         ret_val = vdift.DIFT_store_address_dependency(rhs, lhs2, opp, r2)
         #ret_val.len should work because its a taint mark and has a .len
-        print("apply_dependency.219: type(ret_val)={}, ret_val = store_address_dependancy(rhs, lhs2)={}, lhs={}".format(type(ret_val), ret_val, lhs))
+        print(space + "apply_dependency.241: type(ret_val)={}, ret_val = store_address_dependancy(rhs, lhs2)={}, lhs={}".format(type(ret_val), ret_val, lhs))
         # ret_val.len is not returned properly
-        ret_val = vdift.DIFT_copy_dependency(lhs, ret_val, ret_val.len, r2)
+        ret_val = vdift.DIFT_copy_dependency(lhs, ret_val, ret_val.len, r2, space=space)
 
     #Is computation that sets a value/ends in copy dependency
     if is_comp_opp(opp):
@@ -249,16 +252,16 @@ def apply_dependency(tup, r2, vdift):
             lhs = tup[1]
             rhs = tup[2]
             if type(lhs) == tuple:
-                lhs = apply_dependency(lhs, r2, vdift)
+                lhs = apply_dependency(lhs, r2, vdift, space)
             if type(rhs) == tuple:
-                rhs = apply_dependency(rhs, r2, vdift)
+                rhs = apply_dependency(rhs, r2, vdift, space)
             else:
                 if is_a_constant(rhs):
                     rhs = "constant"
             #ret_val = "copy dependency(to={},from=(computation dependency ({},{}))))".format(lhs,lhs,rhs)
             ret_val = vdift.DIFT_computation_dependency(lhs, rhs, r2)
-            print('apply_dependancy.241. lhs={}, ret_val={}'.format(lhs, ret_val))
-            ret_val = vdift.DIFT_copy_dependency(lhs, ret_val, ret_val.len, r2)
+            print(space + 'apply_dependancy.263. lhs={}, ret_val={}'.format(lhs, ret_val))
+            ret_val = vdift.DIFT_copy_dependency(lhs, ret_val, ret_val.len, r2, space=space)
 
     # Will need to step instruction to see how many bytes were
     # actually read and written to and tell the calling function
@@ -267,7 +270,7 @@ def apply_dependency(tup, r2, vdift):
     if opp == "SPECIAL" or opp == "SYSCALL" or opp == '$':
         a_reg = get_register_A_name(r2)
         a_val = int(r2.cmd("dr? {}".format(a_reg)), 16)
-        print('apply_dependency.259: a_reg={}, a_val={}'.format(a_reg, a_val))
+        print(space + 'apply_dependency.273: a_reg={}, a_val={}'.format(a_reg, a_val))
         if a_reg == "rax":
             #syscall for x86_64 rax = 1 means write
             #rdi = file descriptor to write to
@@ -329,11 +332,11 @@ def apply_dependency(tup, r2, vdift):
                vdift.DIFT_print_cossim(buf, count, ao)
                ao.close()
                # 64 = syscall write " " 
-            print("apply_dependency.328. opp={}, tup={}".format(opp, tup))
+            print(space + "apply_dependency.335. opp={}, tup={}".format(opp, tup))
     # if opp=='DUP':
     #     src = tup[1]
     #     ret_val=apply_dependency(src, r2, vdift)
-    print("apply_dependancy.326: opp={}, ret_val={}, tup={}".format(opp, ret_val, tup))
+    print(space + "apply_dependancy.339: opp={}, ret_val={}, tup={}".format(opp, ret_val, tup))
     return ret_val
 
 #get eax rax; arch dependant
@@ -558,6 +561,7 @@ def is_reg(i):
     arm_regs = set(['x{}'.format(i) for i in range(32)])
     arm_regs |= set(['w{}'.format(i) for i in range(32)])
     arm_regs |= set(['sp', 'lr', 'pc', 'xzr', 'wzr', 'tmp'])
+    arm_regs |= set(['b{}'.format(i) for i in range(32)])
     arm_regs |= set(['q{}'.format(i) for i in range(32)])
     regs |= arm_regs
     if i in regs:
@@ -600,19 +604,31 @@ def esil_from_tuple(tup):
         if type(arg1) == tuple:
             arg1 = esil_from_tuple(arg1)
         rets = "{},{}".format(arg1,opp)
-
+    print('esil_from_tuple.604. tup={}, rets={}'.format(tup, rets))
     return rets
 
 
 def get_reg_name(reg):
-    reg_name = get_x86_64_reg_name(reg)
-    if reg_name == None:
-        reg_name = get_arm64_reg_name(reg)
+    # reg_name = get_x86_64_reg_name(reg)
+    # if reg_name == None:
+    reg_name = get_arm64_reg_name(reg)
+    print('get_reg_name.615.reg={}, reg_name={}'.format(reg, reg_name))
     return reg_name
 
 def get_arm64_reg_name(reg):
-    if reg.startswith("w"):
+    if reg.startswith("vdtmp"):
+        print("get_arm_reg_name.619. if get_reg_name : reg.startswith('vdtmp') {}".format(reg))
+        return (reg, 0)
+    if reg.endswith("vdtmp"):
+        # Haven't hit this case yet....
+        print("get_arm_64_reg_name.619 or if get_reg_name : reg.endswith('vdtmp') {}".format(reg))
         return (reg, 3)
+    if reg.startswith('x'):
+        return (reg, 7)
+    if reg.startswith('b'):
+        return (reg, 1)
+    if reg.startswith("w"):
+        return (reg,3)
     return (reg, 7)
 
 def get_x86_64_reg_name(reg):
