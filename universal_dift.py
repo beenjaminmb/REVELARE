@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3 
 #author EZE
 import r2pipe
 import sys
@@ -85,6 +85,9 @@ def print_stack(n, r2):
             break
 
 def run_ao_command(r2):
+    # analyze opcode
+    # ~ == grep
+    # esil
     ao1 = r2.cmd("ao~esil,address,opcode")
     #place output of above command into a dictionary
     d = parseao(ao1)
@@ -128,11 +131,15 @@ def find_end(r2, orig_ao, ip):
 
 #get eip or rip; arch dependant
 def getIPname(r2):
+    
     iA = r2.cmd("iA")
     if "x86_32" in iA:
         return "eip"
     if "x86_64" in iA:
         return "rip"
+    else:
+        # Need to return EIP for ARCH and RISC-V
+        return None
 
 #make a dictionary of "ao" info
 def parseao(info):
