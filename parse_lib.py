@@ -21,9 +21,11 @@ def esil_tuples(es):
     return z
 
 def print_dependency(tup,r2):
+
     opp = tup[0]
+    # print("Tup: {}, Opp: {}".format(tup, opp))
     ret_str = ""
-    print(tup)
+    # print(tup)
 
     #first case is copy
     if opp == "=":
@@ -130,7 +132,7 @@ def apply_dependency(tup, r2, vdift):
     #first case is copy
     if opp == "=":
         dst = tup[1]
-        src= tup[2]
+        src = tup[2]
         if type(src) == tuple:
             src = apply_dependency(src, r2, vdift)
         if type(dst) == tuple:
@@ -190,16 +192,21 @@ def apply_dependency(tup, r2, vdift):
         lhs2 = ""
         if type(lhs) == tuple:
             lhs2 = apply_dependency(lhs, r2, vdift)
+            print("apply_dependency.195. lhs={}".format(type(lhs), lhs))
             lhs = r2.cmd("ae {}".format(esil_from_tuple(lhs)))
         else:
             lhs2 = lhs
+            print("apply_dependency.199.else lhs={} {}".format(type(lhs), lhs))
             lhs = r2.cmd("dr? {}".format(lhs))
         #if the RHS is not in its simplest form
         if type(rhs) == tuple:
             rhs = apply_dependency(rhs, r2, vdift)
         #ret_val = "copy dependency(to={},from=store address dependency(data={},dataToCalcAdd={})))".format(lhs,rhs,lhs2)
+        print("apply_dependency.204 if type(rhs)==typle: rhs={}, lhs2={}, opp={}".format(rhs, lhs2, opp))
         ret_val = vdift.DIFT_store_address_dependency(rhs, lhs2, opp, r2)
         #ret_val.len should work because its a taint mark and has a .len
+        print("apply_dependency.208: ret_val = store_address_dependancy(rhs, lhs2)={}".format(type(ret_val), ret_val))
+        # ret_val.len is not returned properly
         ret_val = vdift.DIFT_copy_dependency(lhs, ret_val, ret_val.len, r2)
 
     #Is computation that sets a value/ends in copy dependency
@@ -262,9 +269,9 @@ def apply_dependency(tup, r2, vdift):
             #edx = number of bytes to write
             if a_val == 4:#WRITE
                 ao = open("array_output", "a")
-                ecx = int(r2.cmd("dr? edx"), 16)
-                edx = int(r2.cmd("dr? ecx"), 16)
-                #vdift.DIFT_print_cossim(ecx, edx, ao)
+                edx = int(r2.cmd("dr? edx"), 16)# Tony had the string as edx and
+                ecx = int(r2.cmd("dr? ecx"), 16)# switched for this one also.
+                vdift.DIFT_print_cossim(ecx, edx, ao)
                 ao.close()
 
             #syscall for x86_32 eax = 3 means read
@@ -275,7 +282,8 @@ def apply_dependency(tup, r2, vdift):
                 edx = int(r2.cmd("dr? edx"), 16)
                 ecx = int(r2.cmd("dr? ecx"), 16)
                 vdift.DIFT_taint_source(ecx, edx)
-
+    else:
+        print("Ben's: Opp={}".format(opp))
     return ret_val
 
 #get eax rax; arch dependant
@@ -321,7 +329,7 @@ def is_comp_opp(opp):
 # Does not include single argument opperations
 def simple_computation(opp):
     instructions = set(["+", "-", "*", "/", "&", "^", "%", ">", "<", "==",
-        ">>", "<<", "<<<", ">>>", "|"])
+                        ">>", "<<", "<<<<", "<<<", ">>>", ">>>>", "|"])
     if opp in instructions:
         return True
     return False
@@ -368,7 +376,7 @@ def parse_esil(inp, regs):
     s = inp.split(",")
     ret_list = []
     argstack = []
-
+    
     for i in s:
         if is_instruction(i):
             #pop args off stack
@@ -390,11 +398,11 @@ def parse_esil(inp, regs):
     return ret_list, argstack
 
 def is_instruction(i):
-    instructions = ["=", "-","==", "<=", "<", ">=", ">", "<<", ">>", "<<<",
-            ">>>","&", "|", "^", "+", "-", "*", "/", "%", "!", "++", "--",
-            "+=", "-=", "/=", "%=", "*=", "<<=", ">>=", "&=", "|=", "^=",
-            "++=", "--=", "!=", "=[]", "=[*]", "=[1]", "=[2]", "=[4]", "=[8]",
-            "[]", "[1]", "[2]","[4]", "[8]", "SPECIAL"]
+    instructions = ["=", "-","==", "<=", "<", ">=", ">", "<<", ">>", "<<<", "<<<<",
+                    ">>>", ">>>>","&", "|", "^", "+", "-", "*", "/", "%", "!", "++", "--",
+                    "+=", "-=", "/=", "%=", "*=", "<<=", ">>=", "&=", "|=", "^=",
+                    "++=", "--=", "!=", "=[]", "=[*]", "=[1]", "=[2]", "=[4]", "=[8]",
+                    "[]", "[1]", "[2]","[4]", "[8]", "SPECIAL"]
     if i in instructions:
         return True
     return False
@@ -432,7 +440,9 @@ def is_computation_dep(i):
 #right now only the x86 instruction CALL makes this happen
 #may need to add more registers if other archetectures end up
 #pushing onto stack in this way
+
 def is_reg(i):
+    # TODO: Add ARM or RISC-V registers here.
     regs = set(["rax", "eax", "ax", "ah", "al",
                 "rbx", "ebx", "bx", "bh", "bl",
                 "rcx", "ecx", "cx", "ch", "cl",
@@ -502,8 +512,11 @@ def get_reg_name(reg):
     end = ""
     gprs = set(["a","b","c","d"])
     if reg.startswith("tmp"):
+        print("515. if get_reg_name : reg.startswith('tmp') {}".format(reg))
         return (reg, 0)
     if reg.endswith("tmp"):
+        # Haven't hit this case yet....
+        print("519. or if get_reg_name : reg.endswith('tmp') {}".format(reg))
         return (reg, 3)
     if len(reg) == 2:
         midletter = reg[0]
@@ -562,6 +575,7 @@ def get_reg_name(reg):
         return (reg, 3)
     if reg.startswith("$"):
         return (reg, 3)
+    # TODO: Add ARM and RISC-V here.
 
 if __name__ == "__main__":
     main()
