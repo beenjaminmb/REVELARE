@@ -11,7 +11,7 @@ def main():
         exit(0)
 
     #get the program and the args
-    a1 = sys.argv[1] #always the program
+    program = sys.argv[1] #always the program
     args = ""
     for i in range(1, len(sys.argv[1:])):
         args += sys.argv[i] + " "
@@ -28,7 +28,7 @@ def main():
         of = open("dift_out", "w")
 
     #start up r2
-    r2 = r2pipe.open(a1, ["-d"])
+    r2 = r2pipe.open(program, ["-d"])
     """
     #reopen in debug mode
     if args == "":
@@ -37,35 +37,38 @@ def main():
         print ("ood {}".format(args))
         r2.cmd("ood {}".format(args))
     """
-    #r2.cmd("aaaa") #annalyize
-    r2.cmd("db main")# set breakpoint at main
-    r2.cmd("dc") #run the program
+    #r2.cmd("aaaa") # annalyize
+    r2.cmd("db main") # set breakpoint at main
+    r2.cmd("dc") # run the program
 
-    #print(r2.cmd("aaa; pdf")) #print memory map
+    # print(r2.cmd("aaa; pdf")) #print memory map
 
-    #ip = instruction pointer
+    # ip = instruction pointer
     ip = getIPname(r2)
 
-    eip = r2.cmd("dr?" + ip)#get instruction pointer
-    r2.cmd("s "+eip) #seek to IP
+    eip = r2.cmd("dr?" + ip) # get instruction pointer
+    r2.cmd("s "+eip) # seek to IP
     vdift = dift_lib.DIFT()
     ao_output, d, e, run_loop, skip = run_ao_command(r2)
     while(run_loop):
         try:
             if skip:
+                # Debug step
                 r2.cmd("ds;s `dr? {}`".format(ip))
                 ao_output, d, e, run_loop, skip = run_ao_command(r2)
                 continue
             esil_instructions = e[0]
-            #print("===start x86 instruction===")
-            #print_stack(4, r2)
-            #print("esil:{}".format(d.get('esil')))
-            #print("opcode:{}".format(d.get('opcode')))
-            #print(ao_output)
+            # print("===start x86 instruction===")
+            # print_stack(4, r2)
+            print("esil:{}".format(d.get('esil')))
+            print("opcode:{}".format(d.get('opcode')))
+            # print(ao_output)
             for e in esil_instructions:
-                #print("parsed esil:",end="")
-                #print(e)
-                #print("dependency:{}".format(print_dependency(e, r2)))
+                # print("parsed esil:",end="")
+                # print(e)
+                print("FOO BAR: {}".format(e))
+                # print("dependency : {}".format(print_dependency(e, r2)))
+                # This is the important dift function call.
                 apply_dependency(e, r2, vdift)
             #print("---end x86 instruction---")
             r2.cmd("ds;s `dr? {}`".format(ip))
@@ -76,6 +79,8 @@ def main():
             exit()
     of.close()
     r2.quit()
+    for k, v in vdift.taint.items():
+        print("vdift.taint.key =  : {}".format(k))
 
 def print_stack(n, r2):
     for i in range(5):
@@ -98,6 +103,7 @@ def run_ao_command(r2):
         e = parse_esil(d.get('esil'),1)
     else:
         to_continue = 0
+        # The fuck is this crap? Why 5?!?!?!?
         for i in range(5):
             ao1 = r2.cmd("ao~esil,address,opcode")
             d = parseao(ao1)
@@ -110,6 +116,8 @@ def run_ao_command(r2):
                 #print("skipped {}".format(d.get('opcode')))
                 skip = 1
                 break
+    # ao1: last analyzed opcode
+    # 
     return (ao1, d, e, to_continue, skip)
 
 

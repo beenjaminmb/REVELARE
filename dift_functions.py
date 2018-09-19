@@ -12,7 +12,7 @@ from numpy import linalg as LA
 #only have one bool here that states wheather or not we are a register
 #if its a mem value then we make self.mem
 #if its a reg then we make self.reg
-class taint_mark():
+class taint_mark(object):
     #initialize a taint mark, make it a mem value by default
     def __init__(self):
         self.is_reg = False
@@ -31,17 +31,20 @@ class taint_mark():
             else:
                 self.mem = int(val,16)
 
+
     def get_taint_rep(self, i, debug=False):
         if self.is_reg:
             # taint_mark is a register
-            r,p = get_reg_name(self.reg)
+            r, p = get_reg_name(self.reg)
             if debug:
-                print("\tIS REG!!! {} {} {}".format(r,p, i))
+                print("\tget_taint_rep: r={} p={} i={}".format(r,p, i))
             return(r,i)
         else:
             # taint is a mem location
             return (self.mem + i)
 
+        
+        
 class DIFT():
     MAXLEN = 8
     DIM = 100
@@ -71,12 +74,12 @@ class DIFT():
                 self.get_random_taint_vector()
 
     def DIFT_copy_dependency(self, toLocation, fromData, to_len, r2, debug=False):
-        
+        # Ignore xmm registers.
         r = 0
         to_taint_mark = taint_mark()
         from_taint_mark = taint_mark()
 
-        if debug:
+        if True:
             print("VARIABALES:\n\ttoLocation:{}\n\tfromData: {}\n\tto_len: {}\n\tr2: {}".format(
                 toLocation, fromData, to_len, r2))
         #fromData can be a reg, a mem location or a taint_mark from a previous
@@ -90,12 +93,16 @@ class DIFT():
             from_taint_mark.set_vals(fromData, True)
         elif is_a_constant(fromData):
             self.clear_taint(to_taint_mark)
-            return
+            return None
+
         else:
-            print(fromData)
-            print(type(fromData))
+            print("fromData: {}".format(fromData))
+            print("type(fromData): {}".format(type(fromData)))
+            print("toData: {}".format(toLocation))
+            print("type(toData): {}".format(type(toLocation)))
+
             print("NOPE")
-            exit()
+            # exit()
 
         if self.debug_help:
             print("TO LOCATION")
@@ -138,7 +145,7 @@ class DIFT():
             print("SHIT BALLS. Make sure toLocation is not a taint_mark?")
             exit()
         if r == 0:
-            r = self.get_reg_length(toLocation)
+            r = get_reg_length(toLocation)
 
         #Do the actual taint copying
         for i in range(r):
@@ -168,36 +175,40 @@ class DIFT():
             self.taint[loc] = self.taint[loc] * 0
 
 
-    def DIFT_computation_dependency(self, arg1, arg2, r2):
+    def DIFT_computation_dependency(self, dst, src, r2):
+        """ DIFT_computation_dependency
+        
+        : dst = arg1 :
+        : arg1 :
+        """
         #always return a taint_mark
         #unless you throw an error and die
         dst_tm = taint_mark()
         src_tm = taint_mark()
 
         #arg1 must always be a reg
-        if is_reg(arg1):
-            dst_tm.set_vals(arg1, True)
+        if is_reg(dst):
+            dst_tm.set_vals(dst, True)
         else:
             print("The sky is falling!")
-            print(arg1)
-            print(arg2)
+            print(dst)
+            print(src)
             exit()
 
-        if is_a_constant(arg2):
+        if is_a_constant(src):
             #if arg2 is a constant we just return dst_tm
-            dst_tm.len = self.get_len(arg1)
+            dst_tm.len = self.get_len(dst)
             return dst_tm
-        elif type(arg2) == taint_mark:
-            src_tm = arg2
-        elif is_reg(arg2):
-            src_tm.set_vals(arg2, True)
+        elif type(src) == taint_mark:
+            src_tm = src
+        elif is_reg(src):
+            src_tm.set_vals(src, True)
         else:
-            print(type(arg2))
-            print(arg2)
-            print("danger danger")
+            print("Arg2: {}, Arg2 type: {}".format(src, type(src)))
+            print("Danger, Will Robinson! Danger!")
             exit()
 
-        r = self.get_arg_length(arg1)
+        r = get_arg_length(dst)
         for i in range(r):
             to = dst_tm.get_taint_rep(i)
             frm = src_tm.get_taint_rep(i)
@@ -242,26 +253,37 @@ class DIFT():
         #calcAddress can either be a reg or taint mark
         if type(calcAddress) == taint_mark:
             calc_tm = calcAddress
+            print("DIFT_store_address_dependency.256 if calc_tm : {}".format(calcAddress))
         elif is_reg(calcAddress):
             calc_tm.set_vals(calcAddress, True)
+            print("DIFT_store_address_dependency.258 elif calc_tm : {}".format(calc_tm))
+            
         else:
-            print("what I really want to know")
-
+            print("DIFT_store_address_dependency.262 else: {} {} ".format(type(calcAddress), calcAddress))
+            calc_tm.set_vals(calcAddress, False)
+            # calcAddress is a memory address..., but nothing is happening here. 
         #data is either constant, reg, or tm
         if type(data) == taint_mark:
             data_tm = data
+            print("DIFT_store_address_dependency.267. elif\n\tstore_address_dep: {} {}".format(data, calcAddress)) # Tony, who
         elif is_reg(data):
             data_tm.set_vals(data, True)
+            print("DIFT_store_address_dependency.270. elif\n\tstore_address_dep: {} {}".format(data, calcAddress)) # Tony, who the fuck is hannah
         elif is_a_constant(data):
+            print("DIFT_store_address_dependency.272. elif\n\t data==const: data={}, "
+                  "calcAddress={}, type(calcAddress)={}".format(
+                      data, calcAddress, type(calcAddress))) # Tony, who the fuck is hannah
             return calc_tm
         else:
-            print("can't find that Hannah")
+            print("275. can't find that Hannah")
 
         for i in range(r):
             to = self.taint.get(data_tm.get_taint_rep(i))
             frm = self.taint.get(calc_tm.get_taint_rep(i))
+            
             self.taint["tmp", i] = self.combine_taint(to,frm)
         rt = taint_mark()
+        # The fuck is tmp here and up there for?!?!
         rt.set_vals("tmp", True)
         rt.len = r
         return rt
@@ -288,43 +310,9 @@ class DIFT():
     def get_len(self, arg):
         #if we have a tupel
         if type(arg) == tuple:
-            return self.get_arg_length(arg[0])
+            return get_arg_length(arg[0])
         else:
-            return self.get_reg_length(arg)
-
-    def get_arg_length(self, arg):
-        if arg == "[]" or arg == "[8]" or arg == "=[]" or arg == "=[8]":
-            return 8
-        elif arg == "[4]" or arg == "=[4]":
-            return 4
-        elif arg == "[2]" or arg == "=[2]":
-            return 2
-        elif arg == "[1]" or arg == "=[1]":
-            return 1
-        return -1
-
-    def get_reg_length(self, reg):
-        if reg.startswith("r") and not reg[1].isdigit():
-            return 8
-        elif reg.startswith("r") and reg[1:].isdigit():
-            return 8
-        elif reg.startswith("e"):
-            return 4
-        elif reg.endswith("d"):
-            return 4
-        elif reg.endswith("ip"):
-            return 2
-        elif len(reg) == 2 or reg.startswith("r"):
-            if reg.endswith("x"):
-                return 2
-            elif reg.endswith("w"):
-                return 2
-            elif reg.endswith("p"):
-                return 2
-            elif reg.endswith("i"):
-                return 2
-        return 1
-
+            return get_reg_length(arg)
     #LA.norm(x) = norm
     #np.dot(x,y) = dot product
 
@@ -376,10 +364,10 @@ class DIFT():
             return ret_vec
 
         #see if we want to be able to go beyond MAXLEN
-        tm = self.get_taint_magnitude(mat1, mat2)
-        if tm > self.MAXLEN:
-            tm = self.MAXLEN
-        scale = self.get_scale_value(tm, ret_vec)
+        taint_magnitude = self.get_taint_magnitude(mat1, mat2)
+        if taint_magnitude > self.MAXLEN:
+            taint_magnitude = self.MAXLEN
+        scale = self.get_scale_value(taint_magnitude, ret_vec)
         ret_vec = ret_vec * scale
 
         return ret_vec
@@ -387,3 +375,36 @@ class DIFT():
     def get_scale_value(self, taintMag, mat):
         return (math.sqrt(taintMag * taintMag))/(np.dot(mat,mat)) * self.MAXLEN
 
+
+def get_arg_length(arg):
+    if arg == "[]" or arg == "[8]" or arg == "=[]" or arg == "=[8]":
+        return 8
+    elif arg == "[4]" or arg == "=[4]":
+        return 4
+    elif arg == "[2]" or arg == "=[2]":
+        return 2
+    elif arg == "[1]" or arg == "=[1]":
+        return 1
+    return -1
+
+def get_reg_length(reg):
+    if reg.startswith("r") and not reg[1].isdigit():
+        return 8
+    elif reg.startswith("r") and reg[1:].isdigit():
+        return 8
+    elif reg.startswith("e"):
+        return 4
+    elif reg.endswith("d"):
+        return 4
+    elif reg.endswith("ip"):
+        return 2
+    elif len(reg) == 2 or reg.startswith("r"):
+        if reg.endswith("x"):
+            return 2
+        elif reg.endswith("w"):
+            return 2
+        elif reg.endswith("p"):
+            return 2
+        elif reg.endswith("i"):
+            return 2
+    return 1    
