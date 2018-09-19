@@ -1,5 +1,6 @@
-#! /usr/bin/env python
+#! /usr/bin/env python3
 from dift_functions import *
+
 def main():
     d = DIFT()
     #GPR test first
@@ -148,6 +149,7 @@ def main():
         exit()
     #test get_len
     to = d.get_len("ip")
+    print('{} = d.get_len("ip")'.format(to))
     if not ( to == 2):
         print("len ip failed")
         print(to)
@@ -157,23 +159,37 @@ def main():
         print("len rdi failed")
         print(to)
         exit()
-    print(d.get_reg_name("eax"))
-
+    # print(d.get_reg_name("eax"))
+    print("BEFORE r.taint = {}".format(d.taint))
     #test DIFT_copy_dependency
-    #this is seting a random vector for eax
+    #this is setting a random vector for eax
+
+    # d.taint["rax", 0] = d.get_random_taint_vector()
+    # d.taint["rax", 1] = d.get_random_taint_vector()
+    # d.taint["rax", 2] = d.get_random_taint_vector()
+    # d.taint["rax", 3] = d.get_random_taint_vector()
+
     d.taint["rax", 4] = d.get_random_taint_vector()
     d.taint["rax", 5] = d.get_random_taint_vector()
     d.taint["rax", 6] = d.get_random_taint_vector()
     d.taint["rax", 7] = d.get_random_taint_vector()
 
+    pstr = {k: len(l) for k, l in d.taint.items() if l != None}
+    print("AFTER r.taint = {}".format(pstr))
+    # print(d.taint)
     #the 1 is nothing that is used right now but 4 is the
     #number of bytes
-    d.DIFT_copy_dependency("0x2020202", "eax", 4, 1)
-    #stupid floating point numbers are never 1 when they should be
+
+
+    # BUG: Current error is because a check attempts to retrieve ('rax', 0), which doesn't 
+    # exist. Only ('rax', 4) - ('rax', 7) do?
+    d.DIFT_copy_dependency("0x2020202", "eax", 4, 1, True)
+    # stupid floating point numbers are never 1 when they should be    
     cossim = d.cossim(d.taint["rax", 4], d.taint[0x2020202])
     if  not(.9999999999 < cossim <= 1.000000000001):
         print("error1")
         print(float(cossim))
+
     cossim = d.cossim(d.taint["rax", 5], d.taint[0x2020203])
     if  not(.9999999999 < cossim <= 1.0000000001):
         print("error2")

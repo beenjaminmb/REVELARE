@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env python3
 import random
 import math
 import numpy as np
@@ -31,10 +31,12 @@ class taint_mark():
             else:
                 self.mem = int(val,16)
 
-    def get_taint_rep(self,i):
+    def get_taint_rep(self, i, debug=False):
         if self.is_reg:
             # taint_mark is a register
             r,p = get_reg_name(self.reg)
+            if debug:
+                print("\tIS REG!!! {} {} {}".format(r,p, i))
             return(r,i)
         else:
             # taint is a mem location
@@ -49,6 +51,9 @@ class DIFT():
     def __init__ (self):
         self.taint = {}
         self.origtaint = {}
+
+    def get_reg_name(self, reg):
+        return get_reg_name(reg)
 
     def taint_register(self, reg_taint):
         #make sure its a register first
@@ -65,17 +70,23 @@ class DIFT():
             self.taint[mem_taint.get_taint_rep(i)] = \
                 self.get_random_taint_vector()
 
-    def DIFT_copy_dependency(self, toLocation, fromData, to_len, r2):
+    def DIFT_copy_dependency(self, toLocation, fromData, to_len, r2, debug=False):
+        
         r = 0
         to_taint_mark = taint_mark()
         from_taint_mark = taint_mark()
 
+        if debug:
+            print("VARIABALES:\n\ttoLocation:{}\n\tfromData: {}\n\tto_len: {}\n\tr2: {}".format(
+                toLocation, fromData, to_len, r2))
         #fromData can be a reg, a mem location or a taint_mark from a previous
         #calculation
         if type(fromData) == taint_mark:
             from_taint_mark = fromData
             r = fromData.len
         elif is_reg(fromData):
+            if debug:
+                print("fromData is register: {}".format(fromData))
             from_taint_mark.set_vals(fromData, True)
         elif is_a_constant(fromData):
             self.clear_taint(to_taint_mark)
@@ -98,10 +109,21 @@ class DIFT():
 
         #make sure taint mark exists first
         #return otherwise
-        if (not from_taint_mark.is_init) or (type(self.taint.get(from_taint_mark.get_taint_rep(0))) != self.arrtype):
-            if self.debug_help:
-                print(from_taint_mark.is_init)
-                print("BAIL!")
+        
+        if (not from_taint_mark.is_init) or\
+           (type(self.taint.get(from_taint_mark.get_taint_rep(0))) != self.arrtype):
+            if self.debug_help or debug:
+                pstr = {k: len(l) for k, l in self.taint.items() if l != None}
+                print("DEBUG - self.taint: {}".format(pstr))
+                print("DEBUG - self.taint.get(FTM) = {}".format(
+                    self.taint.get(from_taint_mark.get_taint_rep(0))
+                ))
+                print("DEBUG - from_taint_mark.get_taint_rep(0) = {}".format(from_taint_mark.get_taint_rep(0)))
+                
+                print("\n\t{}\n\t{}".format(
+                    type(self.taint.get(from_taint_mark.get_taint_rep(0))),
+                    self.arrtype)
+                )
             return
 
         #toLocation can only be a register or a mem location I think
