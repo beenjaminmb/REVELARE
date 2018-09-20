@@ -138,13 +138,17 @@ def find_end(r2, orig_ao, ip):
             ao = r2.cmd("ao")
 
 #get eip or rip; arch dependant
-def getIPname(r2):
+def getIPname(r2, debug=True):
     
     iA = r2.cmd("iA")
+    if debug:
+        print('universal_dift.getIP.instruction pointer {}'.format(iA))
     if "x86_32" in iA:
         return "eip"
     if "x86_64" in iA:
         return "rip"
+    if "arm_64" in iA:
+        return "pc"
     else:
         # Need to return EIP for ARCH and RISC-V
         return None

@@ -190,7 +190,7 @@ class DIFT():
         if is_reg(dst):
             dst_tm.set_vals(dst, True)
         else:
-            print("The sky is falling!")
+            print("DIFT_computation_dependency.193. dst={}, src={}".format(dst, src))
             print(dst)
             print(src)
             exit()
@@ -275,7 +275,7 @@ class DIFT():
                       data, calcAddress, type(calcAddress))) # Tony, who the fuck is hannah
             return calc_tm
         else:
-            print("275. can't find that Hannah")
+            print("DIFT_store_address_dependency.275. data={}".format(data))
 
         for i in range(r):
             to = self.taint.get(data_tm.get_taint_rep(i))

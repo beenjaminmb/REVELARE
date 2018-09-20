@@ -464,6 +464,10 @@ def is_reg(i):
                 "xmm1", "xmm2", "xmm3", "xmm4",
                 "xmm5", "xmm6", "xmm7", "xmm8",
                 "xmm9"])
+    arm_regs = set(['x{}'.format(i) for i in range(32)])
+    arm_regs |= set(['w{}'.format(i) for i in range(32)])
+    arm_regs |= set(['sp', 'lr', 'pc', 'xzr', 'wzr'])
+    regs |= arm_regs
     if i in regs:
         return True
     if i.startswith("$"):
@@ -504,8 +508,20 @@ def esil_from_tuple(tup):
 
     return rets
 
-#treats everything like its in the 64bit namespace
+
 def get_reg_name(reg):
+    reg_name = get_x86_64_reg_name(reg)
+    if reg_name == None:
+        reg_name = get_arm64_reg_name(reg)
+    return reg_name
+
+def get_arm64_reg_name(reg):
+    if reg.startswith("w"):
+        return (reg, 3)
+    return (reg, 7)
+
+def get_x86_64_reg_name(reg):
+    #treats everything like its in the 64bit namespace
     isGPR = False
     midletter = ""
     start = ""
@@ -576,6 +592,7 @@ def get_reg_name(reg):
     if reg.startswith("$"):
         return (reg, 3)
     # TODO: Add ARM and RISC-V here.
+    return None
 
 if __name__ == "__main__":
     main()
