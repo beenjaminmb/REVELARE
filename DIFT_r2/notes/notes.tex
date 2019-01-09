@@ -1,0 +1,156 @@
+\documentclass{article}
+\usepackage{mathtools}
+\usepackage{fullpage}
+\usepackage{cals}
+\usepackage{listings}
+\usepackage{tabularx}
+\begin{document}
+{\bf Definitions:}\\
+Taint of a register is defined as $\overline{reg}$\\
+Similarly, taint of a memory location pointed to by the register is defined\\
+as $\overline{[reg]}$ \\
+Taint flows from $b$ to $a$ is defined as $a\leftarrow{b}$
+\\\\
+For load address dependency:
+Our example is from x86. mov edx, [ecx]
+\begin{align*}
+        tmp_1 \leftarrow copy\_dep(\overline{[ecx]})\\
+        \overline{edx} \leftarrow load\_address\_dep(data\_taint=tmp_1, address\_taint=\overline{ecx})
+\end{align*}
+More complex load address dependency:
+Our example is from x86. mov edx, [edx+esi*2]
+\begin{align*}
+        tmp_1 \leftarrow copy\_dep(\overline{[edx+esi*2]})\\
+tmp_2 \leftarrow computation\_dep(\overline{edx},\overline{esi}) \\
+        \overline{edx} \leftarrow load\_address\_dep(address\_taint=tmp_1,data\_taint=tmp_2)
+\end{align*}
+For store address dependencies:
+Our example is from x86. mov [ebx], esi
+\begin{align*}
+        tmp_1 \leftarrow copy\_dep(\overline{esi})\\
+        \overline{[ebx]} \leftarrow store\_address\_dep(address\_taint=\overline{ebx},data\_taint=tmp_1)
+\end{align*}
+For store address dependencies:
+Our example is from x86. mov [ebx+ecx], esi
+\begin{align*}
+        tmp_1 \leftarrow computation\_dep(\overline{ebx},\overline{ecx})\\
+        tmp_2 \leftarrow copy\_dep(\overline{esi})\\
+        \overline{[ebx+ecx]} \leftarrow store\_address\_dep(address\_taint=tmp_1,data\_taint=tmp_2)
+\end{align*}
+It is possible to have both a load and store in some architectures,
+such as x86. For example: push [ecx - 0x4] achieves;
+\begin{verbatim}
+esp -= 4 
+[esp] = ([ecx - 0x4])
+\end{verbatim}
+. The second line from above has many dependencies.
+\begin{align*}
+        tmp_1 \leftarrow copy\_dep(\overline{[ecx-0x4]})\\
+        tmp_2 \leftarrow load\_address\_dep({tmp_1,\overline{ecx}})\\
+        \overline{[esp]} \leftarrow store\_address\_dep(tmp_2,\overline{esp})
+\end{align*}
+Note that we only have one copy dependency here even though there is usually a
+copy dependency for load and store when done separately.  This is because the
+copy dependency feeds into the store address dependency transitively through
+the load address dependency.
+
+Briefly the difference between Suh et al and Espinoza et al:
+Suh et al, used a bit (0,1) to mark if something was "spurious" or not,
+which is the same as tainted or clean.
+Espinoza et al used vectors to convey taint information, therefore a taint
+mark is a vector of size $n$.This allows the taint system to convey
+a rough estimate of its source, a cosine similarity can show how
+similar two taint marks in the system are. This allows us to measure
+"how much" taint a mark has, as well as where a mark is from.
+\begin{table}
+\centering
+        \begin{tabular}{l | l}
+                \begin{tabular}{l l}
+                        \multicolumn{2}{c}{Suh et al}\\ \hline
+                        (1) & $\overline{a} \leftarrow \overline{b} |
+                         \overline{a}$\\
+                        \multicolumn{2}{c}{Where $|$ is bitwise or.}\\
+                   
+                \end{tabular}
+        &
+                \begin{tabular}{l l}
+                        \multicolumn{2}{c}{Espinoza et al}\\\hline
+                        (1) & $\overline{a} \leftarrow \overline{a} + \overline{b}$\\
+                        \multicolumn{2}{c}{Where $+$ is vector addition}
+                \end{tabular}
+                
+                
+        \end{tabular}
+        \caption{Copy Dependency}
+\end{table}
+
+\begin{table}
+\centering
+        \begin{tabular}{l | l}
+                \begin{tabular}{l l}
+                        \multicolumn{2}{c}{Suh et al}\\ \hline
+                        (1) & $\overline{a} \leftarrow \overline{b} |
+                         \overline{a}$\\
+                        \multicolumn{2}{c}{Where $|$ is bitwise or.}\\
+                   
+                \end{tabular}
+        &
+                \begin{tabular}{l l}
+                        \multicolumn{2}{c}{Espinoza et al}\\\hline
+                        (1) & $\overline{a} \leftarrow \overline{a} + \overline{b}$\\
+                        \multicolumn{2}{c}{Where $+$ is vector addition}
+                \end{tabular}
+                
+                
+        \end{tabular}
+        \caption{Computation Dependency}
+\end{table}
+\begin{table}
+\centering
+        \begin{tabular}{l | l}
+                \begin{tabular}{l l}
+                        \multicolumn{2}{c}{Suh et al}\\ \hline
+                        (1) & $\overline{a} \leftarrow \overline{b} |
+                         \overline{a}$\\
+                        \\
+                        \multicolumn{2}{c}{Where $|$ is bitwise or.}\\
+                   
+                \end{tabular}
+        &
+                \begin{tabular}{l l}
+                        \multicolumn{2}{c}{Espinoza et al}\\\hline
+                        (1) & $\overline{a} \leftarrow \overline{a} + \overline{b}$\\
+                        (2) & $\overline{a} = \overline{a} * \beta$\\
+                        \multicolumn{2}{c}{Where $+$ is vector addition and
+                        $\beta$ is a value used to scale a}
+                \end{tabular}
+                
+                
+        \end{tabular}
+        \caption{Load Address Dependency}
+\end{table}
+\begin{table}
+\centering
+        \begin{tabular}{l | l}
+                \begin{tabular}{l l}
+                        \multicolumn{2}{c}{Suh et al}\\ \hline
+                        (1) & $\overline{a} \leftarrow \overline{b} |
+                         \overline{a}$\\
+                        \\
+                        \multicolumn{2}{c}{Where $|$ is bitwise or.}\\
+                   
+                \end{tabular}
+        &
+                \begin{tabular}{l l}
+                        \multicolumn{2}{c}{Espinoza et al}\\\hline
+                        (1) & $\overline{a} \leftarrow \overline{a} + \overline{b}$\\
+                        (2) & $\overline{a} = \overline{a} * \beta$\\
+                        \multicolumn{2}{c}{Where $+$ is vector addition and
+                        $\beta$ is a value used to scale a}
+                \end{tabular}
+                
+                
+        \end{tabular}
+        \caption{Store Address Dependency}
+\end{table}
+\end{document}
