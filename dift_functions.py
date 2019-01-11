@@ -73,6 +73,18 @@ class DIFT():
             self.taint[mem_taint.get_taint_rep(i)] = \
                 self.get_random_taint_vector()
 
+
+    def DIFT_control_dependancy(self, to, frm, to_len, r2, debug=False, space=''):
+        """DIFT_control_dependancy: 
+
+       :param to (taint_mark, str): The location to which taint propogates
+       :param frm (taint_mark, str): The location from which taint is propogated
+       :to_len (int) The number of bytes of bytes to propogate to 'to' from 'frm'
+ 
+
+        TODO: Implement control dependency information flow.
+        """
+
     def DIFT_copy_dependency(self, toLocation, fromData, to_len, r2, debug=False, space=''):
         # Ignore xmm registers.
         r = 0
@@ -172,8 +184,7 @@ class DIFT():
 
 
     def DIFT_computation_dependency(self, dst, src, r2):
-        """ DIFT_computation_dependency
-        
+        """ DIFT_computation_dependency 
         : dst = arg1 :
         : arg1 :
         """
