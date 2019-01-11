@@ -36,7 +36,7 @@ your working directory along wiht the file HI from the test_files directory.
 
 DIFT_r2 uses the radare2 hexadecimal editor, disassembler and debugger to
 translate any [supported](https://github.com/radare/radare2#architectures)
-architecture to radare2's intermediate language ESIL (for documentation of ESIL
+architecture to radare2's intermediate language, ESIL (for documentation of ESIL
 see the radare2
 [book](https://radare.gitbooks.io/radare2book/disassembling/esil.html) ). The
 code then separates all ESIL instructions into the type of dependency the
