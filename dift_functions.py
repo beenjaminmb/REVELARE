@@ -43,8 +43,6 @@ class taint_mark(object):
             # taint is a mem location
             return (self.mem + i)
 
-        
-        
 class DIFT():
     MAXLEN = 8
     DIM = 100

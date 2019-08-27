@@ -31,11 +31,9 @@ def esil_tuples(es):
     return z
 
 def print_dependency(tup,r2):
-
     opp = tup[0]
     # print("Tup: {}, Opp: {}".format(tup, opp))
     ret_str = ""
-    # print(tup)
 
     #first case is copy
     if opp == "=":
