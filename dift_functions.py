@@ -357,13 +357,11 @@ class DIFT():
     def combine_taint(self, mat1, mat2):
         if type(mat1) == self.arrtype  and type(mat2) != self.arrtype:
             if self.debug_help:
-                print("SHIT1")
-                print (mat1)
+                print("dift_function.combine_taint.360. mat1={}".format(mat1))
             return mat1
         elif type(mat2) == self.arrtype and type(mat1) != self.arrtype:
             if self.debug_help:
-                print("SHIT2")
-                print(mat2)
+                print("dift_function.combine_taint.360. mat2={}".format(mat2))
             return(mat2)
         elif type(mat1) != self.arrtype and type(mat2) != self.arrtype:
             return np.zeros(self.DIM)

@@ -326,6 +326,7 @@ def apply_dependency(tup, r2, vdift, *largs):
                vdift.DIFT_taint_source(buf, count)
                # 63 = syscall read according to include/uapi/asm-generic/usid.h:203
             if a_val == 64: # WRITE
+               print('apply_dependancy.329.a_val==64')
                ao = open("array_output", "a")
                count = int(r2.cmd("dr? x2"), 16) # count
                buf =   int(r2.cmd("dr? x1"), 16)
