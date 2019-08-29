@@ -449,6 +449,8 @@ def parse_esil(inp, regs):
     r=None
     ret_list = []
     argstack = []
+    pq = False
+    pq_list = ""
     print('parse_esil.401. s={}, regs={}'.format(s, regs))  
     for i in s:
         if type(i) == str and i =='':
@@ -457,7 +459,26 @@ def parse_esil(inp, regs):
             # BEN ADDED THIS BECUASE $ is syscall in esil and ARM compiles to that.
             print('parse_esil.419: i={}, argstack={}, ret_list={}, s={}'.format(i, argstack, ret_list, s))
             r = ("SPECIAL", argstack.pop())
-            ret_list.append(r) 
+            ret_list.append(r)
+
+        """ This is what I'm working on to parse control dependencies.
+            The issue I have is extra esli commansd that are not implemented
+            I also need a way to signal to the parser with the returned value that
+            we have a control dependency. This could be as simple as
+            (CTRL,(conditional statemnt as ESIL),(ESIL COMMDNSD if condition is true)) 
+        """
+        if i == '?{':
+            pq = True
+            continue
+        if i == "}":
+            pq = False
+            a,b = parse_esil(pq_list,"1")
+            argstack.append(a[0])
+            continue
+        if pq:
+            pq_list += ","+i
+            continue
+
         elif is_instruction(i):
             #pop args off stack
             if arg_number(i) == 0:
