@@ -78,7 +78,6 @@ class DIFT():
        :param to (taint_mark, str): The location to which taint propogates
        :param frm (taint_mark, str): The location from which taint is propogated
        :to_len (int) The number of bytes of bytes to propogate to 'to' from 'frm'
- 
 
         TODO: Implement control dependency information flow.
         """
@@ -122,7 +121,7 @@ class DIFT():
 
         #make sure taint mark exists first
         #return otherwise
-        
+
         if (not from_taint_mark.is_init) or\
            (type(self.taint.get(from_taint_mark.get_taint_rep(0))) != self.arrtype):
             if self.debug_help or debug:
@@ -132,7 +131,7 @@ class DIFT():
                     self.taint.get(from_taint_mark.get_taint_rep(0))
                 ))
                 print("DEBUG - from_taint_mark.get_taint_rep(0) = {}".format(from_taint_mark.get_taint_rep(0)))
-                
+
                 print("\n\t{}\n\t{}".format(
                     type(self.taint.get(from_taint_mark.get_taint_rep(0))),
                     self.arrtype)

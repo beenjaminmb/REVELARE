@@ -1,10 +1,19 @@
 #!/usr/bin/python3 
 #author EZE
+#author 1207
 import r2pipe
 import sys
 from parse_lib import *
+
 #from dift_functions import *
 
+
+
+def parse_conf():
+    """
+    1. Name of program
+
+    """
 def main():
     #pass program as input
     if len(sys.argv) < 2:
