@@ -30,10 +30,10 @@ class taint_mark(object):
                 self.mem = int(val,16)
 
 
-    def get_taint_rep(self, i, debug=False):
+    def get_taint_rep(self, i, dift, debug=False):
         if self.is_reg:
             # taint_mark is a register
-            r, p = get_reg_name(self.reg)
+            r, p = dift.get_reg_name(self.reg)
             if debug:
                 print("\tget_taint_rep: r={} p={} i={}".format(r,p, i))
             return(r,i)
@@ -54,10 +54,13 @@ class DIFT():
     def get_reg_name(self, reg):
         return self.parser.get_reg_name(reg)
 
+    def get_arg_length(self, arg):
+        return self.get_arg_length(arg)
+
     def is_a_constant(self, val):
         return self.parser.is_a_constant(val)
 
-    def is_reg(self, val):
+    def is_reg_fn(self, val):
         return self.parser.is_reg(val)
 
     def taint_register(self, reg_taint):
@@ -72,7 +75,7 @@ class DIFT():
 
     def taint_mem_range(self, mem_taint, num):
         for i in range(0, num):
-            self.taint[mem_taint.get_taint_rep(i)] = \
+            self.taint[mem_taint.get_taint_rep(i, self)] = \
                 self.get_random_taint_vector()
 
 
@@ -101,7 +104,7 @@ class DIFT():
         if type(fromData) == taint_mark:
             from_taint_mark = fromData
             r = fromData.len
-        elif is_reg(fromData):
+        elif self.is_reg_fn(fromData):
             if True:
                 print("fromData is register: {}".format(fromData))
             from_taint_mark.set_vals(fromData, True)
@@ -119,32 +122,32 @@ class DIFT():
             print("FROM DATA")
             print(fromData)
             if type(fromData) == taint_mark:
-                print(fromData.get_taint_rep(0))
-                if self.taint.get(fromData.get_taint_rep(0)) != self.arrtype:
-                    print(self.taint.get(from_taint_mark.get_taint_rep(0)))
+                print(fromData.get_taint_rep(0, self))
+                if self.taint.get(fromData.get_taint_rep(0, self)) != self.arrtype:
+                    print(self.taint.get(from_taint_mark.get_taint_rep(0, self)))
 
         #make sure taint mark exists first
         #return otherwise
 
         if (not from_taint_mark.is_init) or\
-           (type(self.taint.get(from_taint_mark.get_taint_rep(0))) != self.arrtype):
+           (type(self.taint.get(from_taint_mark.get_taint_rep(0, self))) != self.arrtype):
             if self.debug_help or debug:
                 pstr = {k: len(l) for k, l in self.taint.items() if l != None}
                 print("DEBUG - self.taint: {}".format(pstr))
                 print("DEBUG - self.taint.get(FTM) = {}".format(
-                    self.taint.get(from_taint_mark.get_taint_rep(0))
+                    self.taint.get(from_taint_mark.get_taint_rep(0, self))
                 ))
-                print("DEBUG - from_taint_mark.get_taint_rep(0) = {}".format(from_taint_mark.get_taint_rep(0)))
+                print("DEBUG - from_taint_mark.get_taint_rep(0) = {}".format(from_taint_mark.get_taint_rep(0, self)))
 
                 print("\n\t{}\n\t{}".format(
-                    type(self.taint.get(from_taint_mark.get_taint_rep(0))),
+                    type(self.taint.get(from_taint_mark.get_taint_rep(0, self))),
                     self.arrtype)
                 )
             print(space + 'DIFT_copy_dependancy.130. return nothing {}'.format(from_taint_mark.is_init))
             return
 
         #toLocation can only be a register or a mem location I think
-        if is_reg(toLocation):
+        if self.is_reg_fn(toLocation):
             to_taint_mark.set_vals(toLocation, True)
         elif self.is_a_constant(toLocation):
             to_taint_mark.set_vals(int(toLocation, 16), False)
@@ -160,8 +163,8 @@ class DIFT():
         print(space + 'DIFT_copy_dependancy.146. r={}'.format(r))
         #Do the actual taint copying
         for i in range(r):
-            to = to_taint_mark.get_taint_rep(i)
-            frm = from_taint_mark.get_taint_rep(i)
+            to = to_taint_mark.get_taint_rep(i, self)
+            frm = from_taint_mark.get_taint_rep(i, self)
             print(space + 'DIFT_copy_dependancy.152. to={}, from={}'.format(to, frm))
             try:
                 self.taint[to] = self.taint[frm]
@@ -180,7 +183,7 @@ class DIFT():
         else:
             return
         for i in range(l):
-            loc = tm.get_taint_rep(i)
+            loc = tm.get_taint_rep(i, self)
             self.taint[loc] = self.taint[loc] * 0
 
 
@@ -214,10 +217,10 @@ class DIFT():
             print("Danger, Will Robinson! Danger!")
             exit()
 
-        r = get_arg_length(dst)
+        r = self.get_arg_length(dst)
         for i in range(r):
-            to = dst_tm.get_taint_rep(i)
-            frm = src_tm.get_taint_rep(i)
+            to = dst_tm.get_taint_rep(i, self)
+            frm = src_tm.get_taint_rep(i, self)
             self.taint["vdtmp2", i] = self.combine_taint(to,frm)
         rt = taint_mark()
         rt.set_vals("vdtmp2", True)
@@ -229,7 +232,7 @@ class DIFT():
         address_tm.set_vals(int(address, 16), False)
         calc_tm = taint_mark()
         r = self.get_len(opp)
-        taint_rep = calcAddress.get_taint_rep(0) if type(calcAddress) ==taint_mark else calcAddress
+        taint_rep = calcAddress.get_taint_rep(0, self) if type(calcAddress) ==taint_mark else calcAddress
         print("DIFT_load_address_dependancy.219. address={}, calcAddress={}, opp={}, r={}".format(address,taint_rep,opp, r))
         if type(calcAddress) == taint_mark:
             calc_tm = calcAddress
@@ -242,8 +245,8 @@ class DIFT():
             print("the wrong way")
 
         for i in range(r):
-            to = self.taint.get(address_tm.get_taint_rep(i))
-            frm = self.taint.get(calc_tm.get_taint_rep(i))
+            to = self.taint.get(address_tm.get_taint_rep(i, self))
+            frm = self.taint.get(calc_tm.get_taint_rep(i, self))
             self.taint["vdtmp1", i] = self.combine_taint(to,frm)
             print("DIFT_load_address_dependancy.233. i={}, to={}, frm={}, taint={}".format(i, to, frm, self.taint["vdtmp1", i]))
 
@@ -286,8 +289,8 @@ class DIFT():
             print("DIFT_store_address_dependency.275. data={}".format(data))
 
         for i in range(r):
-            to = self.taint.get(data_tm.get_taint_rep(i))
-            frm = self.taint.get(calc_tm.get_taint_rep(i))
+            to = self.taint.get(data_tm.get_taint_rep(i, self))
+            frm = self.taint.get(calc_tm.get_taint_rep(i, self))
 
             self.taint["vdtmp", i] = self.combine_taint(to,frm)
         rt = taint_mark()
@@ -318,8 +321,8 @@ class DIFT():
         #if we have a tupel
         if type(arg) == tuple or (type(arg)==str and (arg.startswith('[') or arg.startswith('=['))):
             if type(arg)==str:
-                return get_arg_length(arg)
-            return get_arg_length(arg[0])
+                return self.get_arg_length(arg)
+            return self.get_arg_length(arg[0])
         else:
             return self.get_reg_length(arg)
     #LA.norm(x) = norm

@@ -5,13 +5,6 @@ def dprint(fmt, conf):
         calframe = inspect.stack()[1].function
         print("{}.{}".format(calframe, fmt))
 
-def main():
-    # TODO
-    # conditional jumps, example "jnz ebp"
-    # REP parsing
-    print("deleted stuff")
-
-
 class Parser:
     def __init__(self, conf):
         self.conf = conf
@@ -25,7 +18,7 @@ class Parser:
 
     def parse_and_print(self, es):
         print("------inst start-------")
-        zs = parse_esil(es, "a")[0]
+        zs = self.parse_esil(es, "a")[0]
         for z in zs:
             print("element: {}".format(z))
             pprint(z)
@@ -37,112 +30,6 @@ class Parser:
     def esil_tuples(self, es):
         z = self.parse_esil(es, "a")
         return z
-
-    def print_dependency(self, tup,r2):
-        opp = tup[0]
-        # print("Tup: {}, Opp: {}".format(tup, opp))
-        ret_str = ""
-
-        #first case is copy
-        if opp == "=":
-            dst = tup[1]
-            src= tup[2]
-            if type(src) == tuple:
-                src = self.print_dependency(src,r2)
-            if type(dst) == tuple:
-                dst = self.print_dependency(dst,r2)
-            ret_str = "copy dependency(to={},from={})".format(dst,src)
-
-        #catch load address dependencies
-        if self.is_lad(opp):
-            src = tup[1]
-            if type(src) == tuple:
-                src2 = self.print_dependency(src,r2)
-                src = r2.cmd("ae {}".format(self.esil_from_tuple(src)))
-            else:
-                src2 = src
-                if self.is_reg(src):
-                    src = r2.cmd("dr? {}".format(src))
-            ret_str = "load address dependency (address={},dataToCalcAdd={})".format(src,src2)
-
-        #case where we have [+,-,*,/,xor,and,or]
-        #a naked computation dependency
-        if self.simple_computation(opp):
-            lhs = tup[1]
-            rhs = tup[2]
-            #if the LHS is not in its simplest form
-            if type(lhs) == tuple:
-                lhs = self.print_dependency(lhs,r2)
-            #if the RHS is not in its simplest form
-            if type(rhs) == tuple:
-                rhs = self.print_dependency(rhs,r2)
-            if self.is_a_constant(lhs) and not self.is_a_constant(rhs):
-                return rhs
-            if self.is_a_constant(rhs) and not self.is_a_constant(lhs):
-                return lhs
-            ret_str = "computation dependency ({},{})".format(lhs,rhs)
-
-        #Is a store address dependency
-        if self.is_sad(opp):
-            lhs = tup[1]
-            rhs = tup[2]
-            lhs2 = ""
-            if type(lhs) == tuple:
-                lhs2 = self.print_dependency(lhs,r2)
-                lhs = r2.cmd("ae {}".format(self.esil_from_tuple(lhs)))
-            else:
-                lhs2 = lhs
-                lhs = r2.cmd("dr? {}".format(lhs))
-            #if the RHS is not in its simplest form
-            if type(rhs) == tuple:
-                rhs = self.print_dependency(rhs,r2)
-            ret_str = "copy dependency(to={},from=store address dependency(data={},dataToCalcAdd={})))".format(lhs,rhs,lhs2)
-
-        #Is computation that sets a value/ends in copy dependency
-        if self.is_comp_opp(opp):
-            #need special case for ++=, --=, and !=
-            #these are nothing to me but possible control dependencies
-            if len(tup) == 2:
-                print("Control Dependency")
-                ret_str = "Control Dependency"
-            else:
-                lhs = tup[1]
-                rhs = tup[2]
-                if type(lhs) == tuple:
-                    lhs = self.print_dependency(lhs,r2)
-                if type(rhs) == tuple:
-                    rhs = self.print_dependency(rhs,r2)
-                else:
-                    if self.is_a_constant(rhs):
-                        rhs = "constant"
-                ret_str = "copy dependency(to={},from=(computation dependency ({},{}))))".format(lhs,lhs,rhs)
-
-        # Will need to step instruction to see how many bytes were
-        # actually read and written to and tell the calling function
-        # to not "ds" for next instruction
-        # need to consider other syscalls that are sources or sinks
-
-        # This portion needs to be reworked since we are introducing
-        # taint and measuring it in a different way.
-        if opp == "SPECIAL" or opp == "SYSCALL":
-            a_reg = self.get_register_A_name(r2)
-            a_val = int(r2.cmd("dr? {}".format(a_reg)), 16)
-
-            if a_reg == "rax":
-                if a_val == 1:#WRITE
-                    ret_str = "SINK"
-
-                if a_val == 0:#READ
-                    ret_str = "SOURCE"
-
-            if a_reg == "eax":
-                if a_val == 4:#WRITE
-                    ret_str = "SINK"
-
-                if a_val == 3:#READ
-                    ret_str = "SOURCE"
-        return ret_str
-
 
     def apply_dependency(self, tup, r2, vdift, *largs, **kwargs):
         conf = kwargs.get('conf')
@@ -413,14 +300,14 @@ class Parser:
                 #the arguemnt is not an instruction
                 print(inst + " " + arg, end="")
 
-    def parse_esil(self, inp, regs):
-        s = inp.split(",")
+    def parse_esil(self, esil, regs):
+        s = esil.split(",")
         r=None
         ret_list = []
         argstack = []
         pq = False
         pq_list = ""
-        print('parse_esil.401. s={}, regs={}'.format(s, regs))
+        dprint('parse_esil.401. s={}, regs={}'.format(s, regs), conf=self.conf)
         for i in s:
             if type(i) == str and i =='':
                 continue
@@ -460,7 +347,9 @@ class Parser:
                 else:
                     # Is the & operation a 2 or 1 instruction operation?
                     #pop off 2 args
-                    print("parse_esil.429.i={}, arg_number(i)={}, len(argstack)={}, argstack={}".format(i, arg_number(i), len(argstack),  argstack))
+                    print("parse_esil.429.i={}, arg_number(i)={}, "+
+                            "len(argstack)={}, argstack={}".format(
+                                i, self.arg_number(i), len(argstack),  argstack))
                     r = (i, argstack.pop(), argstack.pop())
                 #if it is an opperation that sets a value or SYSCALL
                 if self.is_computation_dep(i, argstack) or self.is_store_address_dep(i) or self.is_copy_dep(i) or i == "SPECIAL": 
@@ -580,7 +469,7 @@ class Parser:
         opp = tup[0]
         rets = ""
 
-        if arg_number(opp) != 1:
+        if self.arg_number(opp) != 1:
             arg1 = tup[1]
             arg2 = tup[2]
             if type(arg1) == tuple:
@@ -698,7 +587,6 @@ class Parser:
         return None
 
     def get_arg_length(self, arg):
-        print('get_arg_length.378. type(arg)={}, arg={}'.format(type(arg), arg))
         if arg=="[16]" or arg == "=[16]":
             return 16
         elif arg == "[]" or arg == "[8]" or arg == "=[]" or arg == "=[8]":
@@ -747,6 +635,111 @@ class Parser:
             elif reg.endswith("i"):
                 return 2
         return 1
+
+    def print_dependency(self, tup,r2):
+        opp = tup[0]
+        # print("Tup: {}, Opp: {}".format(tup, opp))
+        ret_str = ""
+
+        #first case is copy
+        if opp == "=":
+            dst = tup[1]
+            src= tup[2]
+            if type(src) == tuple:
+                src = self.print_dependency(src,r2)
+            if type(dst) == tuple:
+                dst = self.print_dependency(dst,r2)
+            ret_str = "copy dependency(to={},from={})".format(dst,src)
+
+        #catch load address dependencies
+        if self.is_lad(opp):
+            src = tup[1]
+            if type(src) == tuple:
+                src2 = self.print_dependency(src,r2)
+                src = r2.cmd("ae {}".format(self.esil_from_tuple(src)))
+            else:
+                src2 = src
+                if self.is_reg(src):
+                    src = r2.cmd("dr? {}".format(src))
+            ret_str = "load address dependency (address={},dataToCalcAdd={})".format(src,src2)
+
+        #case where we have [+,-,*,/,xor,and,or]
+        #a naked computation dependency
+        if self.simple_computation(opp):
+            lhs = tup[1]
+            rhs = tup[2]
+            #if the LHS is not in its simplest form
+            if type(lhs) == tuple:
+                lhs = self.print_dependency(lhs,r2)
+            #if the RHS is not in its simplest form
+            if type(rhs) == tuple:
+                rhs = self.print_dependency(rhs,r2)
+            if self.is_a_constant(lhs) and not self.is_a_constant(rhs):
+                return rhs
+            if self.is_a_constant(rhs) and not self.is_a_constant(lhs):
+                return lhs
+            ret_str = "computation dependency ({},{})".format(lhs,rhs)
+
+        #Is a store address dependency
+        if self.is_sad(opp):
+            lhs = tup[1]
+            rhs = tup[2]
+            lhs2 = ""
+            if type(lhs) == tuple:
+                lhs2 = self.print_dependency(lhs,r2)
+                lhs = r2.cmd("ae {}".format(self.esil_from_tuple(lhs)))
+            else:
+                lhs2 = lhs
+                lhs = r2.cmd("dr? {}".format(lhs))
+            #if the RHS is not in its simplest form
+            if type(rhs) == tuple:
+                rhs = self.print_dependency(rhs,r2)
+            ret_str = "copy dependency(to={},from=store address dependency(data={},dataToCalcAdd={})))".format(lhs,rhs,lhs2)
+
+        #Is computation that sets a value/ends in copy dependency
+        if self.is_comp_opp(opp):
+            #need special case for ++=, --=, and !=
+            #these are nothing to me but possible control dependencies
+            if len(tup) == 2:
+                print("Control Dependency")
+                ret_str = "Control Dependency"
+            else:
+                lhs = tup[1]
+                rhs = tup[2]
+                if type(lhs) == tuple:
+                    lhs = self.print_dependency(lhs,r2)
+                if type(rhs) == tuple:
+                    rhs = self.print_dependency(rhs,r2)
+                else:
+                    if self.is_a_constant(rhs):
+                        rhs = "constant"
+                ret_str = "copy dependency(to={},from=(computation dependency ({},{}))))".format(lhs,lhs,rhs)
+
+        # Will need to step instruction to see how many bytes were
+        # actually read and written to and tell the calling function
+        # to not "ds" for next instruction
+        # need to consider other syscalls that are sources or sinks
+
+        # This portion needs to be reworked since we are introducing
+        # taint and measuring it in a different way.
+        if opp == "SPECIAL" or opp == "SYSCALL":
+            a_reg = self.get_register_A_name(r2)
+            a_val = int(r2.cmd("dr? {}".format(a_reg)), 16)
+
+            if a_reg == "rax":
+                if a_val == 1:#WRITE
+                    ret_str = "SINK"
+
+                if a_val == 0:#READ
+                    ret_str = "SOURCE"
+
+            if a_reg == "eax":
+                if a_val == 4:#WRITE
+                    ret_str = "SINK"
+
+                if a_val == 3:#READ
+                    ret_str = "SOURCE"
+        return ret_str
 
 
 if __name__ == "__main__":

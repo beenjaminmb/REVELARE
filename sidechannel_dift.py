@@ -76,36 +76,6 @@ def do_set_ip_local_out_addr(r2, conf=None):
     ret = r2.cmd('db 0xffffffff81895ba0')
     dprint('ret={}'.format(ret), conf=conf)
 
-def main():
-    args = parse_args()
-    conf = parse_conf(args.conf)
-    dift_lib = __import__(conf.get("dift_lib"))
-
-    #if they provide a second arg name the output it
-    of = open(conf.get('outfile'), "w")
-
-    #start up r2
-    r2 = r2pipe.open(conf.get("program"), conf.get("r2args"))
-    parser = Parser(conf)
-    vdift = dift_lib.DIFT(parser)
-    do_load_headers(r2, conf=conf)
-    do_set_sources(r2, conf.get('sources'), conf=conf)
-    do_set_sinks(r2, conf.get('sinks'), conf=conf)
-    run_loop = True
-    pc = getIPname(r2, conf)
-
-    r2.cmd("dc") # run the program
-    # We will continue until we hit one of the taint sources
-    # for the first time. Then we  have to single step through the execution
-    while(run_loop):
-        ao_output, ddict, esil, run_loop, skip = run_ao_command(r2, parser, conf=conf)
-        parser.apply_dependency(esil, r2, vdift, conf=conf)
-        # Im not sure why we need to seek to the pc if we're already there...
-        r2.cmd("ds")
-    of.close()
-    r2.quit()
-    for k, v in vdift.taint.items():
-        print("vdift.taint.key =  : {}".format(k))
 
 def print_stack(n, r2):
     for i in range(5):
@@ -131,70 +101,11 @@ def run_ao_command(r2, parser, conf=None):
     e = ''
     run_loop = 1
     skip = 0
-    if d.get('esil'):
-        """ """
-        e = parser.parse_esil(d.get('esil'),1) # BEN commented this out
-        dprint("universal_dift.137: d={}, e={}".format(d, e),
-                conf=conf)
-    else:
-        dprint('hit else. d={}'.format(d), conf=conf)
-        run_loop = 0
-        ao5 = r2.cmd("aoj")
-        ao5 = json.loads(ao5)
-        for ao in ao5:
-            d = parseao(ao)
-            if type(d) == dict and d != {} and d.get('esil'):
-                e = parser.parse_esil(d.get('esil'),1) # BEN commented this out
-                run_loop = 1
-                break
-            elif d.__contains__('opcode'):
-                run_loop = 1
-                #print("skipped {}".format(d.get('opcode')))
-                skip = 1
-                break
-    # ao1: last analyzed opcode
+    e = parser.parse_esil(d.get('esil'),1) # BEN commented this out
+    dprint("universal_dift.137: d={}, e={}".format(d, e), conf=conf)
     return (ao1, d, e, run_loop, skip)
 
 
-"""
-def run_ao_command(r2, conf=None):
-    # analyze opcode
-    # ~ == grep
-    # esil
-    # I think we can get this as json
-    # ao1 = r2.cmd("ao~esil,address,opcode")
-    ao1 = r2.cmd("aoj")
-    ao1 = json.loads(ao1)
-    ao1 = ao1[0] if ao1 else None
-    if not ao1:
-        dprint("aoj returned nothing...", conf=conf)
-        exit()
-    #place output of above command into a dictionary
-    d = parseao(ao1, conf=conf)
-    e = ''
-    to_continue = 1
-    skip = 0
-    if d.get('esil'):
-        """ """
-        e = parse_esil(d.get('esil'),1) # BEN commented this out
-        dprint("universal_dift.run_ao_command.109: d={}, e={}".format(d, e), conf=conf)
-    else:
-        to_continue = 0
-        for i in range(5):
-            ao1 = r2.cmd("ao~esil,address,opcode")
-            d = parseao(ao1)
-            if type(d) == dict and d != {} and d.get('esil'):
-                e = parse_esil(d.get('esil'),1) # BEN commented this out
-                to_continue = 1
-                break
-            elif d.__contains__('opcode'):
-                to_continue = 1
-                #print("skipped {}".format(d.get('opcode')))
-                skip = 1
-                break
-    # ao1: last analyzed opcode
-    return (ao1, d, e, to_continue, skip)
-"""
 
 #seek through main and find the last ret
 def find_end(r2, orig_ao, ip):
@@ -218,7 +129,7 @@ def getIPname(r2, conf):
 
 #make a dictionary of "ao" info
 def parseao(ao1, conf=None):
-    dprint('ao1={}'.format(json.dumps(ao1, indent=4)), conf=conf)
+    dprint('ao1={}'.format(ao1), conf=None)
     d = {
             "esil" : ao1.get("esil"),
             "address" : ao1.get("addr"),
@@ -226,41 +137,39 @@ def parseao(ao1, conf=None):
             }
     return d
 
-"""
-def parseao(info, conf=None):
-    try:
-        dprint('ao1={}'.format(json.dumps(info)), conf=conf)
-        sinfo = info.split(\n)
-        d = {}
-        if sinfo == ['']:
-            return d
-        for s in sinfo:
-            sl = s.split(":")
-            d[sl[0].strip()]=sl[1].strip()
-        is_ldr = d.get('opcode') and 'str' in d['opcode']
-        if is_ldr:
-            # 'str w2, [x1, x2]'
-            # ['', '[x1','x2]']
-            is_immediate=False
-            opcodes = d['opcode'].split(',')
-            print('parseao.178.is_ldr.opcodes={}, d={}'.format(opcodes, d))
-            if len(opcodes) == 3:
-                offset = opcodes[2].strip()
-                if offset.startswith('0x') or offset.startswith('#') or (offset[0] in set([str(i) for i in range(10)])):
-                    is_immediate=True
-            if len(opcodes) in [2, 4]:
-                    return d
-            print('parseao.183.is_ldr.is_immediate={}'.format(is_immediate))
-            if not is_immediate and d.get('esil'):
-                esil = d['esil'].split(',')
-                esil=[esil[0], esil[1][1:]] + esil[2:] 
-                d['esil']=','.join(esil)
-            print('parseao.188.is_ldr. d={}'.format(d))
-            
-        return d
-    except IndexError:
-        return ''
-"""
+def main():
+    args = parse_args()
+    conf = parse_conf(args.conf)
+    dift_lib = __import__(conf.get("dift_lib"))
+
+    #if they provide a second arg name the output it
+    of = open(conf.get('outfile'), "w")
+
+    #start up r2
+    r2 = r2pipe.open(conf.get("program"), conf.get("r2args"))
+    parser = Parser(conf)
+    vdift = dift_lib.DIFT(parser)
+    do_load_headers(r2, conf=conf)
+    do_set_sources(r2, conf.get('sources'), conf=conf)
+    do_set_sinks(r2, conf.get('sinks'), conf=conf)
+    run_loop = True
+    pc = getIPname(r2, conf)
+
+    r2.cmd("dc") # run the program
+    # We will continue until we hit one of the taint sources
+    # for the first time. Then we  have to single step through the execution
+    while(run_loop):
+        ao_output, ddict, esil, run_loop, skip = run_ao_command(r2, parser, conf=conf)
+        esil_instructions = esil[0]
+        dprint('esil_instructions={}'.format(esil_instructions), conf=conf)
+        for esil_inst in esil_instructions:
+            parser.apply_dependency(esil_inst, r2, vdift, conf=conf)
+        # Im not sure why we need to seek to the pc if we're already there...
+        r2.cmd("ds")
+    of.close()
+    r2.quit()
+    for k, v in vdift.taint.items():
+        print("vdift.taint.key =  : {}".format(k))
 
 if __name__=="__main__":
     main()
