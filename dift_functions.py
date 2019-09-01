@@ -55,7 +55,7 @@ class DIFT():
         return self.parser.get_reg_name(reg)
 
     def get_arg_length(self, arg):
-        return self.get_arg_length(arg)
+        return self.parser.get_arg_length(arg)
 
     def is_a_constant(self, val):
         return self.parser.is_a_constant(val)
