@@ -5,9 +5,23 @@ def dprint(fmt, conf):
         calframe = inspect.stack()[1].function
         print("{}.{}".format(calframe, fmt))
 
-def Parser(object):
-    def __init__(conf):
+def main():
+    # TODO
+    # conditional jumps, example "jnz ebp"
+    # REP parsing
+    print("deleted stuff")
+
+
+class Parser:
+    def __init__(self, conf):
         self.conf = conf
+        isa = self.conf.get('arch').get('isa')
+        if isa == 'x86_64':
+            self._get_reg_name = self.get_x86_64_reg_name
+            self._get_reg_length = self.get_x86_reg_length
+        else:
+            self._get_reg_name = self.get_arm64_reg_name
+            self._get_reg_length = self.get_arm_reg_length
 
     def parse_and_print(self, es):
         print("------inst start-------")
@@ -560,7 +574,6 @@ def Parser(object):
     #right now only the x86 instruction CALL makes this happen
     #may need to add more registers if other archetectures end up
     #pushing onto stack in this way
-
     def is_reg(self, i):
         # TODO: Add ARM or RISC-V registers here.
         regs = set(["rax", "eax", "ax", "ah", "al",
@@ -638,13 +651,15 @@ def Parser(object):
     def get_reg_name(self, reg):
         # reg_name = get_x86_64_reg_name(reg)
         # if reg_name == None:
-        reg_name = self.get_arm64_reg_name(reg)
-        print('get_reg_name.615.reg={}, reg_name={}'.format(reg, reg_name))
-        return reg_name
+        # reg_name = self.get_arm64_reg_name(reg)
+        # print('get_reg_name.615.reg={}, reg_name={}'.format(reg, reg_name))
+        # return reg_name
+        return self._get_reg_name(reg)
 
     def get_arm64_reg_name(self, eg):
         if reg.startswith("vdtmp"):
-            print("get_arm_reg_name.619. if get_reg_name : reg.startswith('vdtmp') {}".format(reg))
+            print("get_arm_reg_name.619. if get_reg_name "+
+                    ": reg.startswith('vdtmp') {}".format(reg))
             return (reg, 0)
         if reg.endswith("vdtmp"):
             # Haven't hit this case yet....
@@ -731,6 +746,58 @@ def Parser(object):
             return (reg, 3)
         # TODO: Add ARM and RISC-V here.
         return None
+
+    def get_arg_length(self, arg):
+        print('get_arg_length.378. type(arg)={}, arg={}'.format(type(arg), arg))
+        if arg=="[16]" or arg == "=[16]":
+            return 16
+        elif arg == "[]" or arg == "[8]" or arg == "=[]" or arg == "=[8]":
+            return 8
+        elif arg == "[4]" or arg == "=[4]":
+            return 4
+        elif arg == "[2]" or arg == "=[2]":
+            return 2
+        elif arg == "[1]" or arg == "=[1]":
+            return 1
+        return -1
+
+
+    def get_reg_length(self, reg):
+        ret = self._get_reg_length(reg) # get_arm_reg_length(reg)
+        print("get_reg_length.403.type(reg)={}, reg={}, ret={}".format(type(reg), reg, ret))
+        return ret
+
+    def get_arm_reg_length(self, reg):
+        if reg.startswith("x"):
+            return 8
+        if reg.startswith("w"):
+            return 4
+        if reg.startswith("b"):
+            return 1
+        return 8
+
+    def get_x86_reg_length(self, reg):
+        if reg.startswith("r") and not reg[1].isdigit():
+            return 8
+        elif reg.startswith("r") and reg[1:].isdigit():
+            return 8
+        elif reg.startswith("e"):
+            return 4
+        elif reg.endswith("d"):
+            return 4
+        elif reg.endswith("ip"):
+            return 2
+        elif len(reg) == 2 or reg.startswith("r"):
+            if reg.endswith("x"):
+                return 2
+            elif reg.endswith("w"):
+                return 2
+            elif reg.endswith("p"):
+                return 2
+            elif reg.endswith("i"):
+                return 2
+        return 1
+
 
 if __name__ == "__main__":
     main()

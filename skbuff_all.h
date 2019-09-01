@@ -42,7 +42,7 @@ struct tcphdr {
 	__be32	ack_seq;
         // We are little endian
         // #if defined(__LITTLE_ENDIAN_BITFIELD)
-	__u16 flags:
+	__u16 flags;
         /*
         __u16	res1:4,
 		doff:4,

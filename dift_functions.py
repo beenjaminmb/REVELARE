@@ -1,12 +1,10 @@
 #! /usr/bin/env python3
+
+# 3rd party imports
 import random
 import math
 import numpy as np
 import sys
-from parse_lib import is_a_constant
-from parse_lib import is_reg
-from parse_lib import get_reg_name
-
 from numpy import linalg as LA
 
 #only have one bool here that states wheather or not we are a register
@@ -49,12 +47,18 @@ class DIFT():
     arrtype = type(np.zeros(1))
     debug_help = 0
 
-    def __init__ (self):
+    def __init__ (self, parser):
         self.taint = {}
         self.origtaint = {}
-
+        self.parser = parser
     def get_reg_name(self, reg):
-        return get_reg_name(reg)
+        return self.parser.get_reg_name(reg)
+
+    def is_a_constant(self, val):
+        return self.parser.is_a_constant(val)
+
+    def is_reg(self, val):
+        return self.parser.is_reg(val)
 
     def taint_register(self, reg_taint):
         #make sure its a register first
@@ -62,7 +66,7 @@ class DIFT():
             print("ERROR")
         else:
             #get the mark number and register name
-            r, p = get_reg_name(reg_taint.reg)
+            r, p = self.get_reg_name(reg_taint.reg)
             for i in range(p, self.MAXLEN):
                 self.taint[(r,i)] = self.get_random_taint_vector()
 
@@ -101,7 +105,7 @@ class DIFT():
             if True:
                 print("fromData is register: {}".format(fromData))
             from_taint_mark.set_vals(fromData, True)
-        elif is_a_constant(fromData):
+        elif self.is_a_constant(fromData):
             self.clear_taint(to_taint_mark)
             return None
 
@@ -142,17 +146,17 @@ class DIFT():
         #toLocation can only be a register or a mem location I think
         if is_reg(toLocation):
             to_taint_mark.set_vals(toLocation, True)
-        elif is_a_constant(toLocation):
+        elif self.is_a_constant(toLocation):
             to_taint_mark.set_vals(int(toLocation, 16), False)
             r = to_len
         elif type(toLocation) == taint_mark:
             r = toLocation.len
         else:
-            print(space + "DIFT_copy_dependancy.140: type(toLocation)={}, toLocation={}, is_a_constant(toLocation)={}".format(type(toLocation), toLocation, is_a_constant(toLocation)))
+            print(space + "DIFT_copy_dependancy.140: type(toLocation)={}, toLocation={}, self.is_a_constant(toLocation)={}".format(type(toLocation), toLocation, self.is_a_constant(toLocation)))
             exit()
         if r == 0:
-            r = get_reg_length(toLocation)
-        
+            r = self.get_reg_length(toLocation)
+
         print(space + 'DIFT_copy_dependancy.146. r={}'.format(r))
         #Do the actual taint copying
         for i in range(r):
@@ -197,7 +201,7 @@ class DIFT():
             print("DIFT_computation_dependency.193. dst={}, src={}".format(dst, src))
             exit() # I commented this out, evidentally...
 
-        if is_a_constant(src):
+        if self.is_a_constant(src):
             #if arg2 is a constant we just return dst_tm
             dst_tm.len = self.get_len(dst)
             return dst_tm
@@ -231,7 +235,7 @@ class DIFT():
             calc_tm = calcAddress
         elif is_reg(calcAddress):
             calc_tm.set_vals(calcAddress, True)
-        elif is_a_constant(calcAddress):
+        elif self.is_a_constant(calcAddress):
             #if we don't use anything to calculate address return
             return address_tm
         else:
@@ -261,7 +265,7 @@ class DIFT():
         elif is_reg(calcAddress):
             calc_tm.set_vals(calcAddress, True)
             print("DIFT_store_address_dependency.258 elif calc_tm : {}".format(calc_tm))
-            
+
         else:
             print("DIFT_store_address_dependency.262 else: {} {} ".format(type(calcAddress), calcAddress))
             calc_tm.set_vals(calcAddress, False)
@@ -273,7 +277,7 @@ class DIFT():
         elif is_reg(data):
             data_tm.set_vals(data, True)
             print("DIFT_store_address_dependency.270. elif\n\tstore_address_dep: {} {}".format(data, calcAddress)) # Tony, who the fuck is hannah
-        elif is_a_constant(data):
+        elif self.is_a_constant(data):
             print("DIFT_store_address_dependency.272. elif\n\t data==const: data={}, "
                   "calcAddress={}, type(calcAddress)={}".format(
                       data, calcAddress, type(calcAddress))) # Tony, who the fuck is hannah
@@ -284,7 +288,7 @@ class DIFT():
         for i in range(r):
             to = self.taint.get(data_tm.get_taint_rep(i))
             frm = self.taint.get(calc_tm.get_taint_rep(i))
-            
+
             self.taint["vdtmp", i] = self.combine_taint(to,frm)
         rt = taint_mark()
         # The fuck is tmp here and up there for?!?!
@@ -317,7 +321,7 @@ class DIFT():
                 return get_arg_length(arg)
             return get_arg_length(arg[0])
         else:
-            return get_reg_length(arg)
+            return self.get_reg_length(arg)
     #LA.norm(x) = norm
     #np.dot(x,y) = dot product
 
@@ -380,56 +384,3 @@ class DIFT():
 
     def get_scale_value(self, taintMag, mat):
         return (math.sqrt(taintMag * taintMag))/(np.dot(mat,mat)) * self.MAXLEN
-
-
-def get_arg_length(arg):
-    print('get_arg_length.378. type(arg)={}, arg={}'.format(type(arg), arg))
-    if arg=="[16]" or arg == "=[16]":
-        return 16
-    elif arg == "[]" or arg == "[8]" or arg == "=[]" or arg == "=[8]":
-        return 8
-    elif arg == "[4]" or arg == "=[4]":
-        return 4
-    elif arg == "[2]" or arg == "=[2]":
-        return 2
-    elif arg == "[1]" or arg == "=[1]":
-        return 1
-    return -1
-
-
-def get_arm_reg_length(reg):
-    if reg.startswith("x"):
-        return 8
-    if reg.startswith("w"):
-        return 4
-    if reg.startswith("b"):
-        return 1
-    return 8
-    
-
-def get_reg_length(reg):
-    ret = get_arm_reg_length(reg)
-    print("get_reg_length.403.type(reg)={}, reg={}, ret={}".format(type(reg), reg, ret))
-    return ret
-
-def get_x86_reg_length(reg):
-    if reg.startswith("r") and not reg[1].isdigit():
-        return 8
-    elif reg.startswith("r") and reg[1:].isdigit():
-        return 8
-    elif reg.startswith("e"):
-        return 4
-    elif reg.endswith("d"):
-        return 4
-    elif reg.endswith("ip"):
-        return 2
-    elif len(reg) == 2 or reg.startswith("r"):
-        if reg.endswith("x"):
-            return 2
-        elif reg.endswith("w"):
-            return 2
-        elif reg.endswith("p"):
-            return 2
-        elif reg.endswith("i"):
-            return 2
-    return 1    

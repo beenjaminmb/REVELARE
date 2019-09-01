@@ -1,9 +1,9 @@
-#!/usr/bin/python3 
+#!/usr/bin/python3
 #author EZE
 #author 1207
 import r2pipe
 import sys
-from parse_lib import *
+from parse_lib import Parser, dprint
 import json
 #from dift_functions import *
 
@@ -86,22 +86,25 @@ def main():
 
     #start up r2
     r2 = r2pipe.open(conf.get("program"), conf.get("r2args"))
+    print('Parser={}'.format(Parser))
+    parser = Parser(conf)
+    vdift = dift_lib.DIFT(parser)
+    dprint('Parser={}, vdift={}'.format(parser, vdift), conf=conf)
     do_load_headers(r2, conf=conf)
     do_set_sources(r2, conf.get('sources'), conf=conf)
     do_set_sinks(r2, conf.get('sinks'), conf=conf)
     # r2.cmd("db main") # set breakpoint at main
-    vdift = dift_lib.DIFT()
     run_loop = True
     pc = getIPname(r2, conf)
     while(run_loop):
         r2.cmd("dc") # run the program
-        ao_output, d, e, run_loop, skip = run_ao_command(r2, conf=conf)
+        ao_output, d, e, run_loop, skip = run_ao_command(r2, parser, conf=conf)
         try:
             if skip:
                 # Debug step
                 r2.cmd("ds;s `dr? {}`".format(pc))
                 dprint("universal_dift.run_loop.58. skip=True", conf=conf)
-                ao_output, d, e, run_loop, skip = run_ao_command(r2, conf=conf)
+                ao_output, d, e, run_loop, skip = run_ao_command(r2, parser, conf=conf)
                 dprint('main.60. d={}. e={}'.format(d, e), conf=conf)
                 continue
             esil_instructions = e[0]
@@ -109,11 +112,11 @@ def main():
                 d.get('opcode'), d.get('esil')), conf=conf)
             for e in esil_instructions:
                 dprint("main.73.apply_dependancy: e={}".format(e), conf=conf)
-                apply_dependency(e, r2, vdift, conf=conf)
+                parser.apply_dependency(e, r2, vdift, conf=conf)
                 # print("---end x86 instruction---")
             r2.cmd("ds;s `dr? {}`".format(pc))
             #debug setp, seek to eip
-            ao_output, d, e, run_loop, skip = run_ao_command(r2)
+            ao_output, d, e, run_loop, skip = run_ao_command(r2, parser)
             dprint('main.80: d={}, e={}'.format(d, e), conf=conf)
         except UnicodeError as e:
             print(e)
@@ -130,7 +133,7 @@ def print_stack(n, r2):
             print(pxo)
             break
 
-def run_ao_command(r2, conf=None):
+def run_ao_command(r2, parser, conf=None):
     # analyze opcode
     # ~ == grep
     # esil
@@ -149,7 +152,7 @@ def run_ao_command(r2, conf=None):
     skip = 0
     if d.get('esil'):
         """ """
-        e = parse_esil(d.get('esil'),1) # BEN commented this out
+        e = parser.parse_esil(d.get('esil'),1) # BEN commented this out
         dprint("universal_dift.run_ao_command.109: d={}, e={}".format(d, e), conf=conf)
     else:
         run_loop = 0
@@ -158,7 +161,7 @@ def run_ao_command(r2, conf=None):
         for ao in ao5:
             d = parseao(ao)
             if type(d) == dict and d != {} and d.get('esil'):
-                e = parse_esil(d.get('esil'),1) # BEN commented this out
+                e = parser.parse_esil(d.get('esil'),1) # BEN commented this out
                 run_loop = 1
                 break
             elif d.__contains__('opcode'):
