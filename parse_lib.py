@@ -102,7 +102,7 @@ class Parser:
             lhs2 = ""
             if type(lhs) == tuple:
                 lhs2 = self.apply_dependency(lhs, r2, vdift, space)
-                lhs = r2.cmd("ae {}".format(esil_from_tuple(lhs)))
+                lhs = r2.cmd("ae {}".format(self.esil_from_tuple(lhs)))
             else:
                 lhs2 = lhs
                 lhs = r2.cmd("dr? {}".format(lhs))

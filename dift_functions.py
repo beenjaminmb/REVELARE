@@ -57,6 +57,9 @@ class DIFT():
     def get_arg_length(self, arg):
         return self.parser.get_arg_length(arg)
 
+    def get_reg_length(self, reg):
+        return self.parser.get_reg_length(reg)
+
     def is_a_constant(self, val):
         return self.parser.is_a_constant(val)
 
@@ -198,7 +201,7 @@ class DIFT():
         src_tm = taint_mark()
 
         #arg1 must always be a reg
-        if is_reg(dst):
+        if self.is_reg_fn(dst):
             dst_tm.set_vals(dst, True)
         else:
             print("DIFT_computation_dependency.193. dst={}, src={}".format(dst, src))
@@ -210,7 +213,7 @@ class DIFT():
             return dst_tm
         elif type(src) == taint_mark:
             src_tm = src
-        elif is_reg(src):
+        elif self.is_reg_fn(src):
             src_tm.set_vals(src, True)
         else:
             print("Arg2: {}, Arg2 type: {}".format(src, type(src)))
@@ -236,7 +239,7 @@ class DIFT():
         print("DIFT_load_address_dependancy.219. address={}, calcAddress={}, opp={}, r={}".format(address,taint_rep,opp, r))
         if type(calcAddress) == taint_mark:
             calc_tm = calcAddress
-        elif is_reg(calcAddress):
+        elif self.is_reg_fn(calcAddress):
             calc_tm.set_vals(calcAddress, True)
         elif self.is_a_constant(calcAddress):
             #if we don't use anything to calculate address return
@@ -265,7 +268,7 @@ class DIFT():
         if type(calcAddress) == taint_mark:
             calc_tm = calcAddress
             print("DIFT_store_address_dependency.256 if calc_tm : {}".format(calcAddress))
-        elif is_reg(calcAddress):
+        elif self.is_reg_fn(calcAddress):
             calc_tm.set_vals(calcAddress, True)
             print("DIFT_store_address_dependency.258 elif calc_tm : {}".format(calc_tm))
 
@@ -277,7 +280,7 @@ class DIFT():
         if type(data) == taint_mark:
             data_tm = data
             print("DIFT_store_address_dependency.267. elif\n\tstore_address_dep: {} {}".format(data, calcAddress)) # Tony, who
-        elif is_reg(data):
+        elif self.is_reg_fn(data):
             data_tm.set_vals(data, True)
             print("DIFT_store_address_dependency.270. elif\n\tstore_address_dep: {} {}".format(data, calcAddress)) # Tony, who the fuck is hannah
         elif self.is_a_constant(data):
