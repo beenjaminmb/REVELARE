@@ -86,41 +86,22 @@ def main():
 
     #start up r2
     r2 = r2pipe.open(conf.get("program"), conf.get("r2args"))
-    print('Parser={}'.format(Parser))
     parser = Parser(conf)
     vdift = dift_lib.DIFT(parser)
-    dprint('Parser={}, vdift={}'.format(parser, vdift), conf=conf)
     do_load_headers(r2, conf=conf)
     do_set_sources(r2, conf.get('sources'), conf=conf)
     do_set_sinks(r2, conf.get('sinks'), conf=conf)
-    # r2.cmd("db main") # set breakpoint at main
     run_loop = True
     pc = getIPname(r2, conf)
+
+    r2.cmd("dc") # run the program
+    # We will continue until we hit one of the taint sources
+    # for the first time. Then we  have to single step through the execution
     while(run_loop):
-        r2.cmd("dc") # run the program
-        ao_output, d, e, run_loop, skip = run_ao_command(r2, parser, conf=conf)
-        try:
-            if skip:
-                # Debug step
-                r2.cmd("ds;s `dr? {}`".format(pc))
-                dprint("universal_dift.run_loop.58. skip=True", conf=conf)
-                ao_output, d, e, run_loop, skip = run_ao_command(r2, parser, conf=conf)
-                dprint('main.60. d={}. e={}'.format(d, e), conf=conf)
-                continue
-            esil_instructions = e[0]
-            dprint("main.64 e={}, opecode={}, esil:{}".format(e,
-                d.get('opcode'), d.get('esil')), conf=conf)
-            for e in esil_instructions:
-                dprint("main.73.apply_dependancy: e={}".format(e), conf=conf)
-                parser.apply_dependency(e, r2, vdift, conf=conf)
-                # print("---end x86 instruction---")
-            r2.cmd("ds;s `dr? {}`".format(pc))
-            #debug setp, seek to eip
-            ao_output, d, e, run_loop, skip = run_ao_command(r2, parser)
-            dprint('main.80: d={}, e={}'.format(d, e), conf=conf)
-        except UnicodeError as e:
-            print(e)
-            exit()
+        ao_output, ddict, esil, run_loop, skip = run_ao_command(r2, parser, conf=conf)
+        parser.apply_dependency(esil, r2, vdift, conf=conf)
+        # Im not sure why we need to seek to the pc if we're already there...
+        r2.cmd("ds")
     of.close()
     r2.quit()
     for k, v in vdift.taint.items():
@@ -153,8 +134,10 @@ def run_ao_command(r2, parser, conf=None):
     if d.get('esil'):
         """ """
         e = parser.parse_esil(d.get('esil'),1) # BEN commented this out
-        dprint("universal_dift.run_ao_command.109: d={}, e={}".format(d, e), conf=conf)
+        dprint("universal_dift.137: d={}, e={}".format(d, e),
+                conf=conf)
     else:
+        dprint('hit else. d={}'.format(d), conf=conf)
         run_loop = 0
         ao5 = r2.cmd("aoj")
         ao5 = json.loads(ao5)
