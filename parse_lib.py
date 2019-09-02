@@ -39,6 +39,7 @@ class Parser:
         space += ' '
         #first case is copy
         dprint('tup={}, opp={}'.format(tup, opp), conf=conf)
+
         if opp == "=":
             dst = tup[1]
             src = tup[2]
@@ -107,8 +108,6 @@ class Parser:
                 lhs2 = lhs
                 lhs = r2.cmd("dr? {}".format(lhs))
             if lhs.startswith('address'):
-                # BEN ADDED THIS CHECK
-                # Radare appears to return an address: 0XNNNNNNNNN\nopcode value
                 lhs = lhs.split(' ')
                 lhs = lhs[1].split('\n')
                 lhs = lhs[0]
@@ -138,7 +137,21 @@ class Parser:
                         rhs = "constant"
                 ret_val = vdift.DIFT_computation_dependency(lhs, rhs, r2)
                 ret_val = vdift.DIFT_copy_dependency(lhs, ret_val, ret_val.len, r2, space=space)
+        dprint(space+
+                "apply_dependancy.339: opp={}, ret_val={}, tup={}".format(opp, ret_val, tup),
+                conf=conf)
+        if self.is_control_dependancy(opp):
+            """ Do Control Flow stuff """
+        return ret_val
 
+    def is_control_dependancy(self, opp):
+        """
+        TODO: Implement
+
+        For now return False
+        """
+        return False
+    def syscall_propogation_rules(self, opp, r2, vdift):
         # Will need to step instruction to see how many bytes were
         # actually read and written to and tell the calling function
         # to not "ds" for next instruction
@@ -207,15 +220,16 @@ class Parser:
                    buf =   int(r2.cmd("dr? x1"), 16)
                    vdift.DIFT_print_cossim(buf, count, ao)
                    ao.close()
-                   # 64 = syscall write " " 
-                dprint(space + "apply_dependency.335. opp={}, tup={}".format(opp, tup), conf=conf)
+                   # 64 = syscall write " "
+                dprint(space + "apply_dependency.335. opp={}, tup={}".format(
+                    opp, tup), conf=conf)
         # if opp=='DUP':
         #     src = tup[1]
         #     ret_val=apply_dependency(src, r2, vdift)
-        dprint(space+
-                "apply_dependancy.339: opp={}, ret_val={}, tup={}".format(opp, ret_val, tup),
-                conf=conf)
-        return ret_val
+        # dprint(space+
+        #         "apply_dependancy.339: opp={}, ret_val={}, tup={}".format(opp, ret_val, tup),
+        #         conf=conf)
+        # return ret_val
 
     #get eax rax, x8; x86, x86_64, arm64 arch
     def get_register_A_name(self, r2):
@@ -307,35 +321,39 @@ class Parser:
         argstack = []
         pq = False
         pq_list = ""
-        dprint('parse_esil.401. s={}, regs={}'.format(s, regs), conf=self.conf)
+        # dprint('parse_esil.401. s={}, regs={}'.format(s, regs), conf=self.conf)
         for i in s:
             if type(i) == str and i =='':
                 continue
+            """
             if i == '$':
                 # BEN ADDED THIS BECUASE $ is syscall in esil and ARM compiles to that.
                 print('parse_esil.419: i={}, argstack={}, ret_list={}, s={}'.
                         format(i, argstack, ret_list, s))
                 r = ("SPECIAL", argstack.pop())
                 ret_list.append(r)
-
-            """ This is what I'm working on to parse control dependencies.
+            """
+            """
+                This is what I'm working on to parse control dependencies.
                 The issue I have is extra esli commansd that are not implemented
                 I also need a way to signal to the parser with the returned value that
                 we have a control dependency. This could be as simple as
                 (CTRL,(conditional statemnt as ESIL),(ESIL COMMDNSD if condition is true)) 
+            """
             """
             if i == '?{':
                 pq = True
                 continue
             if i == "}":
                 pq = False
-                a,b = self.parse_esil(pq_list,"1")
+                # a,b = self.parse_esil(pq_list,"1")
+                a,b = self.parse_esil(pq_list,1)
                 argstack.append(a[0])
                 continue
             if pq:
                 pq_list += ","+i
                 continue
-
+            """
             elif self.is_instruction(i):
                 #pop args off stack
                 if self.arg_number(i) == 0:

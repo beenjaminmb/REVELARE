@@ -85,23 +85,18 @@ def print_stack(n, r2):
             break
 
 def run_ao_command(r2, parser, conf=None):
-    # analyze opcode
-    # ~ == grep
-    # esil
-    # I think we can get this as json
-    # ao1 = r2.cmd("ao~esil,address,opcode")
     ao1 = r2.cmd("aoj")
     ao1 = json.loads(ao1)
+    if len(ao1) > 1:
+        dprint('ao1={}'.format(ao1), conf=conf)
     ao1 = ao1[0] if ao1 else None
     if not ao1:
         dprint("aoj returned nothing...", conf=conf)
-        exit()
-    #place output of above command into a dictionary
     d = parseao(ao1, conf=conf)
     e = ''
     run_loop = 1
     skip = 0
-    e = parser.parse_esil(d.get('esil'),1) # BEN commented this out
+    e = parser.parse_esil(d.get('esil'),1)
     dprint("universal_dift.137: d={}, e={}".format(d, e), conf=conf)
     return (ao1, d, e, run_loop, skip)
 
@@ -150,22 +145,36 @@ def main():
     parser = Parser(conf)
     vdift = dift_lib.DIFT(parser)
     do_load_headers(r2, conf=conf)
-    do_set_sources(r2, conf.get('sources'), conf=conf)
-    do_set_sinks(r2, conf.get('sinks'), conf=conf)
+    do_set_sources(r2, conf.get("sources"), conf=conf)
+    do_set_sinks(r2, conf.get("sinks"), conf=conf)
     run_loop = True
     pc = getIPname(r2, conf)
-
     r2.cmd("dc") # run the program
-    # We will continue until we hit one of the taint sources
+    # We will continue until we hit one of the taint sources or sink function(s)
     # for the first time. Then we  have to single step through the execution
+    sources = set(["0xffffffff81890880"])
+    sinks = set(["0xffffffff81895ba0"])
     while(run_loop):
+        rip_val = r2.cmd("dr? {}".format(pc)).strip()
+        dprint("rip={}, rip_val in sources={}, rip_val in sinks={}".format(rip_val,
+            rip_val in sources, rip_val in sinks), conf=conf)
+        if rip_val in sources:
+            """ """
+            rdi = r2.cmd("dr? rdi")
+            rdi2 = r2.cmd("dr rdi")
+            five_tuple = get_5tuple(rip_val, r2)
+            vdift.DIFT_taint_source_ip_rcv("bytes", )
+            # vdift.DIFT_taint_source_ip_rcv("register")
+
+        elif rip_val in sinks:
+            """ """
         ao_output, ddict, esil, run_loop, skip = run_ao_command(r2, parser, conf=conf)
         esil_instructions = esil[0]
         dprint('esil_instructions={}'.format(esil_instructions), conf=conf)
         for esil_inst in esil_instructions:
             parser.apply_dependency(esil_inst, r2, vdift, conf=conf)
         # Im not sure why we need to seek to the pc if we're already there...
-        r2.cmd("ds")
+        r2.cmd("ds;s `dr? {}`".format(pc))
     of.close()
     r2.quit()
     for k, v in vdift.taint.items():
