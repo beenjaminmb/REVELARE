@@ -128,6 +128,86 @@ def parseao(ao1, conf=None):
             }
     return d
 
+def get_mem_value(addr, r2):
+    """Returns the value at the specified memory
+    NOTE: Might need to include size or type
+    """
+
+    value = None
+    return value
+
+def get_ip_hdr(rip_val, r2):
+    """ """
+    network_header_offset = 0
+    ip_hdr = int(rip_val) + network_header_offset
+    return hex(ip_hdr)
+
+def get_proto(rip_val, r2):
+    """Returns the source address from the rip_val (sk_buff pointer).
+
+    iph->proto = 9 bytes from start of network header
+    """
+    proto_offset = 9
+    proto_addr = get_ip_hdr(rip_val) + proto_offset
+    proto = get_mem_value(proto_addr, r2)
+    return proto
+
+def get_saddr(rip_val, r2):
+    """Returns the source address from the rip_val (sk_buff pointer).
+
+    iph->saddr = 12 bytes from start of network header
+    """
+    saddr_offset = 12
+    saddr_addr = get_ip_hdr(rip_val) + saddr_offset
+    saddr = get_mem_value(saddr_addr, r2)
+    return saddr
+
+def get_daddr(rip_val, r2):
+    """Returns the source address from the rip_val (sk_buff pointer).
+
+    iph->daddr = 16 bytes from start of network header
+    """
+    daddr_offset = 16
+    daddr_addr = get_ip_hdr(rip_val) + daddr_offset
+    daddr = get_mem_value(daddr_addr, r2)
+    return saddr
+
+def get_ip_fields(rip_val, r2):
+    """
+    1. Retrieving the ip header:
+
+    struct iphdr *iph = ip_hdr(skb);
+
+    static inline struct iphdr *ip_hdr(const struct sk_buff *skb)
+    {
+        return (struct iphdr *)skb_network_header(skb);
+    }
+
+    static inline unsigned char *skb_network_header(const struct sk_buff *skb)
+    {
+        return skb->head + skb->network_header;
+    }
+
+    2. Retriving the IP source and dest addresses
+
+    int ip_build_and_send_pkt(struct sk_buff *skb, const struct sock *sk,
+                  __be32 saddr, __be32 daddr, struct ip_options_rcu *opt)
+                  {
+
+    ip_hdr(skb)->saddr,
+    ip_hdr(skb)->daddr,
+    ip_hdr(skb)->proto,
+    """
+    saddr = get_saddr(rip_val, r2)
+    daddr = get_daddr(rip_val, r2)
+    proto = get_proto(rip_val, r2)
+    return saddr, daddr, proto
+
+def get_tcp_fields(rip_val, r2):
+    """
+
+    """
+
 def get_5tuple(rip_val, r2):
     """
     Extract
@@ -164,26 +244,37 @@ def main():
     do_set_sinks(r2, conf.get("sinks"), conf=conf)
     run_loop = True
     pc = getIPname(r2, conf)
+    sources = set(["0xffffffff81890880"])
+    sinks = set(["0xffffffff81895ba0"])
+
     r2.cmd("dc") # run the program
     # We will continue until we hit one of the taint sources or sink function(s)
     # for the first time. Then we  have to single step through the execution
-    sources = set(["0xffffffff81890880"])
-    sinks = set(["0xffffffff81895ba0"])
     while(run_loop):
-        rip_val = r2.cmd("dr? {}".format(pc)).strip()
+        rip_val = r2.cmd("dr {}".format(pc)).strip()
         dprint("rip={}, rip_val in sources={}, rip_val in sinks={}".format(rip_val,
             rip_val in sources, rip_val in sinks), conf=conf)
         if rip_val in sources:
-            """ """
-            rdi = r2.cmd("dr? rdi")
-            rdi2 = r2.cmd("dr rdi")
+            """
+            Current source is:
+
+            int ip_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt,
+                   struct net_device *orig_dev)
+            x86_64 calling convention is (rdi, rsi, rdx)
+            """
+            rdi = r2.cmd("dr rdi")
             five_tuple = get_5tuple(rip_val, r2)
             vdift.DIFT_taint_source_from_5tuple(rip_val, r2, five_tuple, "bytes")
-
             # vdift.DIFT_taint_source_ip_rcv("register")
-
         elif rip_val in sinks:
-            """ """
+            """
+            Current sink is:
+
+            int ip_local_out(struct net *net, struct sock *sk, struct sk_buff *skb)
+
+            x86_64 calling convention is (rdi, rsi, rdx)
+            """
+            rdx = r2.cmd("dr rdx")
         ao_output, ddict, esil, run_loop, skip = run_ao_command(r2, parser, conf=conf)
         esil_instructions = esil[0]
         dprint('esil_instructions={}'.format(esil_instructions), conf=conf)
