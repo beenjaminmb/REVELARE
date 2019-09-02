@@ -67,7 +67,6 @@ def do_set_ip_rcv_addr(r2, conf=None):
     ret = r2.cmd('db 0xffffffff81890880')
     dprint('ret={}'.format(ret), conf=conf)
 
-
 def do_set_sinks(r2, sinks, conf=None):
     # _do_set_breakpoints(r2, sinks, conf=conf)
     do_set_ip_local_out_addr(r2, conf=conf)
@@ -75,7 +74,6 @@ def do_set_sinks(r2, sinks, conf=None):
 def do_set_ip_local_out_addr(r2, conf=None):
     ret = r2.cmd('db 0xffffffff81895ba0')
     dprint('ret={}'.format(ret), conf=conf)
-
 
 def print_stack(n, r2):
     for i in range(5):
@@ -99,8 +97,6 @@ def run_ao_command(r2, parser, conf=None):
     e = parser.parse_esil(d.get('esil'),1)
     dprint("universal_dift.137: d={}, e={}".format(d, e), conf=conf)
     return (ao1, d, e, run_loop, skip)
-
-
 
 #seek through main and find the last ret
 def find_end(r2, orig_ao, ip):
@@ -131,6 +127,25 @@ def parseao(ao1, conf=None):
             "opcode" : ao1.get("opcode")
             }
     return d
+
+def get_5tuple(rip_val, r2):
+    """
+    Extract
+    1. IP Layer
+    1.1. source IP address
+    1.2. destination IP address
+    1.3. layer 4 protocol
+
+    2. Layer 4
+    2.1. source port
+    2.2. destination port
+    """
+    (saddr, daddr, proto) =  get_ip_fields(rip_val, r2)
+    if proto is not PROTO_TCP:
+        (sport, dport) = get_tcp_fields(rip_val, r2)
+    else:
+        (sport, dport) = get_tcp_fields(rip_val, r2)
+    return (saddr, daddr, proto, sport, dport)
 
 def main():
     args = parse_args()
@@ -163,7 +178,8 @@ def main():
             rdi = r2.cmd("dr? rdi")
             rdi2 = r2.cmd("dr rdi")
             five_tuple = get_5tuple(rip_val, r2)
-            vdift.DIFT_taint_source_ip_rcv("bytes", )
+            vdift.DIFT_taint_source_from_5tuple(rip_val, r2, five_tuple, "bytes")
+
             # vdift.DIFT_taint_source_ip_rcv("register")
 
         elif rip_val in sinks:

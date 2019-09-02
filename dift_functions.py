@@ -50,7 +50,9 @@ class DIFT():
     def __init__ (self, parser):
         self.taint = {}
         self.origtaint = {}
+        self.tuple_tant_map = {}
         self.parser = parser
+
     def get_reg_name(self, reg):
         return self.parser.get_reg_name(reg)
 
@@ -235,8 +237,10 @@ class DIFT():
         address_tm.set_vals(int(address, 16), False)
         calc_tm = taint_mark()
         r = self.get_len(opp)
-        taint_rep = calcAddress.get_taint_rep(0, self) if type(calcAddress) ==taint_mark else calcAddress
-        print("DIFT_load_address_dependancy.219. address={}, calcAddress={}, opp={}, r={}".format(address,taint_rep,opp, r))
+        taint_rep = calcAddress.get_taint_rep(0, self) \
+                if type(calcAddress) == taint_mark else calcAddress
+        print("DIFT_load_address_dependancy.219. address={}, "+
+                "calcAddress={}, opp={}, r={}".format(address,taint_rep,opp, r))
         if type(calcAddress) == taint_mark:
             calc_tm = calcAddress
         elif self.is_reg_fn(calcAddress):
@@ -251,7 +255,9 @@ class DIFT():
             to = self.taint.get(address_tm.get_taint_rep(i, self))
             frm = self.taint.get(calc_tm.get_taint_rep(i, self))
             self.taint["vdtmp1", i] = self.combine_taint(to,frm)
-            print("DIFT_load_address_dependancy.233. i={}, to={}, frm={}, taint={}".format(i, to, frm, self.taint["vdtmp1", i]))
+            print("DIFT_load_address_dependancy.233. i={}, to={}, " +
+                    "frm={}, taint={}".format(
+                        i, to, frm, self.taint["vdtmp1", i]))
 
         rt = taint_mark()
         rt.set_vals("vdtmp1", True)
@@ -307,6 +313,22 @@ class DIFT():
         for i in range (elements):
             self.taint[startAddress + i] = self.get_random_taint_vector()
             self.origtaint[startAddress + i] = self.taint[startAddress + i]
+
+    def DIFT_taint_source_from_5tuple(self, startAddress, r2, five_tuple, tipe):
+        """ Taint the source using the 5tuple
+        : param startAddrees : the address we start taint
+        : param r2 :
+        : param five_tuple :
+        : param tipe : Whether to taint bytes of memory pointed to
+        by the startAddres or the register.
+        """
+        taint_vector = self.get_random_taint_vector()
+        self.tuple_tant_map[five_tuple] = taint_vector
+        for i in range(elements):
+            self.taint[startAddress + i] = taint_vector
+            self.origtaint[startAddress + i] = taint_vector
+
+
 
     def get_random_taint_vector(self):
         sqrsum = 0
