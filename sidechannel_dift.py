@@ -8,6 +8,27 @@ import json
 #from dift_functions import *
 
 
+def get_skb_field_offset(field_name):
+    # Note, these offsets are build specific. If compilation flags were used that
+    # Change the sk_buff definition, these will need to be adjusted accordingly.
+    # The skbuff_all.h file will need to be changed as well.
+    skb_field_byte_count_map = [("filler" , 40), ("cb" , 48),  ("filler0" , 16),
+            ("_nfct" , 8), ("len" , 4), ("data_len" , 4), ("max_len" , 2),
+            ("hdr_len" , 2), ("queue_mapping" ,  2), ("__cloned_offset" , 1),
+            ("active_extrnsions" , 1), ("header_start" , 4),
+            ("__pkt_type_offset" , 1), ("__pkt_vlan_present_offset" , 1),
+            ("tc_index" , 2), ("filler2" , 4), ("priority" , 4), ("skb_iif" , 4),
+            ("hash" , 4), ("vlan_proto" , 2), ("vlan_tci", 2), ("filler3" , 4),
+            ("secmark" , 4), ("filler4" , 6), ("inner_transport_header" , 2),
+            ("inner_network_header" , 2), ("inner_mac_header" , 2),
+            ("protocol" , 2), ("transport_header" , 2), ("network_header" , 2)]
+    offset = 0
+    for (cur_field, byte_count) in skb_field_byte_count_map:
+        if cur_field == field_name:
+            break
+        offset += byte_count
+    return offset
+
 def parse_args():
     import argparse
     parser = argparse.ArgumentParser()
@@ -128,27 +149,47 @@ def parseao(ao1, conf=None):
             }
     return d
 
-def get_mem_value(addr, r2):
+def make_addr(addr, offset):
+    """Make a and return hex str from addr and offset
+    : param addr : Hex encoded string of address
+    : type str :  
+
+    : param offset : the offset of the new address
+    : type int :
+
+    :return : The hex string of the new address
+    """
+    return hex(int(addr) + offset)
+
+def get_mem_value(field_size, addr, r2):
     """Returns the value at the specified memory
     NOTE: Might need to include size or type
     """
-
-    value = None
-    return value
+    # field size.
+    # We always start at 2
+    value = r2.cmd("pd {} @ {}:1[2]".format(field_size, addr))
+    print("get_mem_value.value = {}".format(value))
+    return int(value)
 
 def get_ip_hdr(rip_val, r2):
-    """ """
-    network_header_offset = 0
-    ip_hdr = int(rip_val) + network_header_offset
-    return hex(ip_hdr)
+    """Return the address the ip_hdr is stored at in the sk_buff struct.
+
+    network_header pointer offset is 178 bytes from skb_buff start.
+    """
+    network_header_offset = 178
+    network_header_addr = make_addr(rip_val, network_header_offset)
+    network_header_value = get_mem_value(network_header_addr)
+    ip_hdr_addr = make_addr(rip_val, network_header_value)
+
+    return hex(ip_hdr_addr)
 
 def get_proto(rip_val, r2):
     """Returns the source address from the rip_val (sk_buff pointer).
 
     iph->proto = 9 bytes from start of network header
     """
-    proto_offset = 9
-    proto_addr = get_ip_hdr(rip_val) + proto_offset
+    proto_offset = 9 # 0x9
+    proto_addr = make_addr(get_ip_hdr(rip_val), proto_offset)
     proto = get_mem_value(proto_addr, r2)
     return proto
 
@@ -157,18 +198,18 @@ def get_saddr(rip_val, r2):
 
     iph->saddr = 12 bytes from start of network header
     """
-    saddr_offset = 12
-    saddr_addr = get_ip_hdr(rip_val) + saddr_offset
+    saddr_offset = 12 # 0xC
+    saddr_addr = make_addr(get_ip_hdr(rip_val), saddr_offset)
     saddr = get_mem_value(saddr_addr, r2)
     return saddr
 
 def get_daddr(rip_val, r2):
-    """Returns the source address from the rip_val (sk_buff pointer).
+    """Returns the destination address from the rip_val (sk_buff pointer).
 
     iph->daddr = 16 bytes from start of network header
     """
-    daddr_offset = 16
-    daddr_addr = get_ip_hdr(rip_val) + daddr_offset
+    daddr_offset = 16 # 0x10
+    daddr_addr = make_addr(get_ip_hdr(rip_val), daddr_offset)
     daddr = get_mem_value(daddr_addr, r2)
     return saddr
 
@@ -203,10 +244,39 @@ def get_ip_fields(rip_val, r2):
     proto = get_proto(rip_val, r2)
     return saddr, daddr, proto
 
+
+def get_tcp_hdr(rip_val, r2):
+    tcp_hdr = None
+    return tcp_hdr
+
+def get_tcp_sport(rip_val, r2):
+    """Return the source port for this sk_buff
+
+    source port is 0 bytes from transport header
+    """
+    sport_offset = 0
+    sport_addr = make_addr(get_tcp_hdr(rip_val, r2), sport_offset)
+    sport = get_mem_value(sport_addr, r2)
+    return sport
+
+def get_tcp_dport(rip_val, r2):
+    """Return the source port for this sk_buff
+
+    destination port is 2 bytes from start of transport header
+    """
+    dport_offset = 2
+    dport_addr = make_addr(get_tcp_hdr(rip_val, r2), dport_offset)
+    dport = get_mem_value(dport_addr, r2)
+    return dport
+
+
 def get_tcp_fields(rip_val, r2):
     """
 
     """
+    sport = get_tcp_sport(rip_val, r2)
+    dport = get_tcp_dport(rip_val, r2)
+    return sport, dport
 
 def get_5tuple(rip_val, r2):
     """
@@ -222,8 +292,9 @@ def get_5tuple(rip_val, r2):
     """
     (saddr, daddr, proto) =  get_ip_fields(rip_val, r2)
     if proto is not PROTO_TCP:
+        # Should do something else if the proto isn't tcp, but assume it is for now
         (sport, dport) = get_tcp_fields(rip_val, r2)
-    else:
+    else: # Default to TCP
         (sport, dport) = get_tcp_fields(rip_val, r2)
     return (saddr, daddr, proto, sport, dport)
 

@@ -165,7 +165,7 @@ struct sk_buff {
 	__u32			hash;
 	__be16			vlan_proto;
 	__u16			vlan_tci;
-        char fillter3[4];
+        char filler3[4];
 	__u32		secmark;
 
         char filler4[6];
