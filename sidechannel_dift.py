@@ -292,6 +292,14 @@ def get_ip_fields(addr, r2):
     return saddr, daddr, proto
 
 
+def get_data_len(addr, r2):
+    """" """
+    data_len_offset = 116 # 0xC
+    data_len_addr = make_addr(addr, data_len_offset)
+    data_len_field_size = 4
+    data_len = get_mem_value(data_len_field_size, data_len_addr, r2)
+    return data_len
+
 def get_tcp_hdr(addr, r2):
     transport_header_offset = 178
     transport_header_field_size = 2 # 2 bytes for this field
@@ -355,6 +363,18 @@ def get_5tuple(addr, r2):
         (sport, dport) = get_tcp_fields(addr, r2)
     return (saddr, daddr, proto, sport, dport)
 
+def get_ip_rcv_skb_addr(r2, conf):
+    if conf.get("arch").get("isa") == "x86_64":
+        skb_addr = r2.cmd("dr rdi")
+    else:
+        raise Exception("x86_64 is the only supported architecture, currently.")
+    return skb_addr
+
+def taint_source_handler(source, conf):
+    """Given a source, return the address pointed to by it's specified parameter(s).
+    TODO: Implement this function at some point.
+    """
+    return None
 def main():
     args = parse_args()
     conf = parse_conf(args.conf)
@@ -390,11 +410,12 @@ def main():
                    struct net_device *orig_dev)
             x86_64 calling convention is (rdi, rsi, rdx)
             """
-            rdi = r2.cmd("dr rdi")
-            print("rdi={}".format(rdi))
-            five_tuple = get_5tuple(rdi, r2)
-            print("five_tuple={}".format(five_tuple))
-            vdift.DIFT_taint_source_from_5tuple(rdi, r2, five_tuple, "bytes")
+            skb_ptr = get_ip_rcv_skb_addr(r2, conf)
+            print("skb_ptr={}".format(skb_ptr))
+            five_tuple = get_5tuple(skb_ptr, r2)
+            data_len = get_data_len(skb_ptr, r2)
+            print("five_tuple={}, data_len={}".format(five_tuple, data_len))
+            vdift.DIFT_taint_source_from_5tuple(skb_ptr, r2, five_tuple, "pointer")
             # vdift.DIFT_taint_source_ip_rcv("register")
         elif rip_val in sinks:
             """
@@ -405,7 +426,12 @@ def main():
             x86_64 calling convention is (rdi, rsi, rdx)
             """
             rdx = r2.cmd("dr rdx")
+            five_tuple = get_5tuple(rdx, r2)
+            with open("dift_side_channel_out", "a") as f:
+                vdift.DIFT_print_cossim_from_pointer(rdx, length, f)
         ao_output, ddict, esil, run_loop, skip = run_ao_command(r2, parser, conf=conf)
+        # Indexing the command in this way assumes all the computation is stored
+        # In the tuple, but it currently isn't.
         esil_instructions = esil[0]
         dprint('esil_instructions={}'.format(esil_instructions), conf=conf)
         for esil_inst in esil_instructions:

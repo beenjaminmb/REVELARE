@@ -88,7 +88,7 @@ typedef int refcount_t; // struct refcount_struct { atomic_t refs; } refcount_t;
 
 struct sk_buff {
         char                filler[40]; // Fillter data
-	char			cb[48]; // 88 
+	char			cb[48]; // 88
         char               filler0[16];
 	unsigned long		 _nfct; // 8 bytes, 112 total
 	unsigned int		len,

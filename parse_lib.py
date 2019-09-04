@@ -248,6 +248,8 @@ class Parser:
             return True
         if s.startswith("-") and s[1:].isdigit():
             return True
+        if s == ":=": # I think we can treat the special value as a cosntant
+            return True
         return False
 
     def is_lad(self, opp):
@@ -319,42 +321,44 @@ class Parser:
         r=None
         ret_list = []
         argstack = []
-        pq = False
-        pq_list = ""
+        in_ctrl = False
+        cond_list = ""
         # dprint('parse_esil.401. s={}, regs={}'.format(s, regs), conf=self.conf)
         for i in s:
             if type(i) == str and i =='':
                 continue
-                """ Unindent this after we fix
-                if i == '$':
-                    # BEN ADDED THIS BECUASE $ is syscall in esil and ARM compiles to that.
-                    print('parse_esil.419: i={}, argstack={}, ret_list={}, s={}'.
-                            format(i, argstack, ret_list, s))
-                    r = ("SPECIAL", argstack.pop())
-                    ret_list.append(r)
-                """
+                """ Unindent this after we fix"""
+            if i == '$':
+                print('parse_esil.419: i={}, argstack={}, ret_list={}, s={}'.
+                        format(i, argstack, ret_list, s))
+                r = ("SPECIAL", argstack.pop())
+                ret_list.append(r)
                 """
                     This is what I'm working on to parse control dependencies.
-                    The issue I have is extra esli commansd that are not implemented
+                    The issue I have is extra esil commands that are not implemented.
+
                     I also need a way to signal to the parser with the returned value that
                     we have a control dependency. This could be as simple as
                     (CTRL,(conditional statemnt as ESIL),(ESIL COMMDNSD if condition is true)) 
+
+
                 """
                 """
                 if i == '?{':
-                    pq = True
+                    in_ctrl = True
                     continue
                 if i == "}":
-                    pq = False
-                    # a,b = self.parse_esil(pq_list,"1")
-                    a,b = self.parse_esil(pq_list,1)
-                    argstack.append(a[0])
+                    in_ctrl = False
+                    # a,b = self.parse_esil(cond_list,"1")
+                    a,b = self.parse_esil(cond_list,1)
+                    # argstack.append(a[0])
+                    r = ("CTRL", a[0])
                     continue
-                if pq:
-                    pq_list += ","+i
+                if in_ctrl:
+                    cond_list += ","+i
                     continue
-                """
-            elif self.is_instruction(i):
+               """
+            if self.is_instruction(i):
                 #pop args off stack
                 if self.arg_number(i) == 0:
                     dup = argstack[-1]
@@ -383,6 +387,7 @@ class Parser:
         return ret_list, argstack
 
     def is_instruction(self, i):
+        # TODO: Handle ?=
         instructions = ["=", "-","==", "<=", "<", ">=", ">", "<<", ">>", "<<<", "<<<<",
                         ">>>", ">>>>","&", "|", "^", "+", "-", "*", "/", "%", "!", "++", "--",
                         "+=", "-=", "/=", "%=", "*=", "<<=", ">>=", "&=", "|=", "^=",
@@ -454,6 +459,7 @@ class Parser:
                     "xmm1", "xmm2", "xmm3", "xmm4",
                     "xmm5", "xmm6", "xmm7", "xmm8",
                     "xmm9"])
+        # We need to add the esil specific registers
         arm_regs = set(['x{}'.format(i) for i in range(32)])
         arm_regs |= set(['w{}'.format(i) for i in range(32)])
         arm_regs |= set(['sp', 'lr', 'pc', 'xzr', 'wzr', 'tmp'])
@@ -467,7 +473,7 @@ class Parser:
         return False
 
     def is_eflag(self, r):
-        eflags = set(['zf', 'cf', 'pf', 'sf', 'of'])
+        eflags = set(['zf', 'cf', 'pf', 'sf', 'of', "eflags", "rflags"]) # Added eflags rflags # ,"$z", "$s", "$p", '$o'])
         if r in eflags:
             return True
         return False

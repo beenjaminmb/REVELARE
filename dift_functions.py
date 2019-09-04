@@ -65,7 +65,7 @@ class DIFT():
     def is_a_constant(self, val):
         return self.parser.is_a_constant(val)
 
-    def is_reg_fn(self, val):
+    def is_reg(self, val):
         return self.parser.is_reg(val)
 
     def taint_register(self, reg_taint):
@@ -94,6 +94,9 @@ class DIFT():
         TODO: Implement control dependency information flow.
         """
 
+    def is_esil_VM_dependent(self, reg):
+        return reg in set([":="])
+
     def DIFT_copy_dependency(self, toLocation, fromData, to_len, r2, debug=False, space=''):
         # Ignore xmm registers.
         r = 0
@@ -109,17 +112,17 @@ class DIFT():
         if type(fromData) == taint_mark:
             from_taint_mark = fromData
             r = fromData.len
-        elif self.is_reg_fn(fromData):
+        elif self.is_reg(fromData):
             if True:
                 print("fromData is register: {}".format(fromData))
             from_taint_mark.set_vals(fromData, True)
         elif self.is_a_constant(fromData):
             self.clear_taint(to_taint_mark)
             return None
-
+        # elif self.is_esil_VM_dependent(fromData):
         else:
             print(space + "DIFT_copy_dependency:100.FUCK toLocation={}, fromData={}".format(toLocation, fromData))
-            exit()
+            # exit()
 
         if self.debug_help:
             print("TO LOCATION")
@@ -152,7 +155,7 @@ class DIFT():
             return
 
         #toLocation can only be a register or a mem location I think
-        if self.is_reg_fn(toLocation):
+        if self.is_reg(toLocation):
             to_taint_mark.set_vals(toLocation, True)
         elif self.is_a_constant(toLocation):
             to_taint_mark.set_vals(int(toLocation, 16), False)
@@ -203,7 +206,7 @@ class DIFT():
         src_tm = taint_mark()
 
         #arg1 must always be a reg
-        if self.is_reg_fn(dst):
+        if self.is_reg(dst):
             dst_tm.set_vals(dst, True)
         else:
             print("DIFT_computation_dependency.193. dst={}, src={}".format(dst, src))
@@ -215,7 +218,7 @@ class DIFT():
             return dst_tm
         elif type(src) == taint_mark:
             src_tm = src
-        elif self.is_reg_fn(src):
+        elif self.is_reg(src):
             src_tm.set_vals(src, True)
         else:
             print("Arg2: {}, Arg2 type: {}".format(src, type(src)))
@@ -243,7 +246,7 @@ class DIFT():
                 "calcAddress={}, opp={}, r={}".format(address,taint_rep,opp, r))
         if type(calcAddress) == taint_mark:
             calc_tm = calcAddress
-        elif self.is_reg_fn(calcAddress):
+        elif self.is_reg(calcAddress):
             calc_tm.set_vals(calcAddress, True)
         elif self.is_a_constant(calcAddress):
             #if we don't use anything to calculate address return
@@ -274,7 +277,7 @@ class DIFT():
         if type(calcAddress) == taint_mark:
             calc_tm = calcAddress
             print("DIFT_store_address_dependency.256 if calc_tm : {}".format(calcAddress))
-        elif self.is_reg_fn(calcAddress):
+        elif self.is_reg(calcAddress):
             calc_tm.set_vals(calcAddress, True)
             print("DIFT_store_address_dependency.258 elif calc_tm : {}".format(calc_tm))
 
@@ -286,7 +289,7 @@ class DIFT():
         if type(data) == taint_mark:
             data_tm = data
             print("DIFT_store_address_dependency.267. elif\n\tstore_address_dep: {} {}".format(data, calcAddress)) # Tony, who
-        elif self.is_reg_fn(data):
+        elif self.is_reg(data):
             data_tm.set_vals(data, True)
             print("DIFT_store_address_dependency.270. elif\n\tstore_address_dep: {} {}".format(data, calcAddress)) # Tony, who the fuck is hannah
         elif self.is_a_constant(data):
@@ -322,14 +325,24 @@ class DIFT():
         : param five_tuple :
         : param tipe : Whether to taint bytes of memory pointed to
         by the startAddres or the register.
+
+        Need to taint the following:
+
+        1. iphdr
+        1.1. Require header size
+        1.1.1. tot_len
+        2. tcphdr
+        2.1.
+        3. skb->data
+        3.1. total of skb->data_len
         """
+        if five_tuple in self.tuple_tant_map:
+            return
+        # Otherwise, we need to add the new taint vector to the map
         taint_vector = self.get_random_taint_vector()
         self.tuple_tant_map[five_tuple] = taint_vector
-        for i in range(elements):
-            self.taint[startAddress + i] = taint_vector
-            self.origtaint[startAddress + i] = taint_vector
-
-
+        self.taint[startAddress] = taint_vector
+        self.origtaint[startAddress] = taint_vector
 
     def get_random_taint_vector(self):
         sqrsum = 0
@@ -361,6 +374,23 @@ class DIFT():
         ret = np.dot(mat1, mat2) / denom
         return ret
 
+    def DIFT_print_cossim_from_pointer(self, address, fd):
+        """
+        xaxis = in bytes
+        yaxis = out bytes
+        """
+        # address = address + 8
+        print("DIFT_print_cossim.323: address={}, length={}, taint={}\n\n\n\torigtaint={}".format(address, length, self.taint, self.origtaint))
+        inbytes = self.origtaint.values()
+        for i in range(length):
+            outbyte = self.taint.get(address + i)
+            print("DIFT_print_cossim.327: address={}, outbytes={}".format(address + i, outbyte))
+            for b in inbytes:
+                val = self.cossim(b,outbyte)
+                #  print("\tDIFT_print_cossim.330: address={}, val={}, outbytes={}, b={}\n".format(address + i, val, outbyte, b))
+                fd.write(str(val) + " ")
+            print()
+            fd.write("\n")
     def DIFT_print_cossim(self, address, length, fd):
         """
         xaxis = in bytes
