@@ -7,4 +7,4 @@ ip tuntap del tap0 mode tap
 ip link set dev br0 down
 ip link delete br0 type bridge
 
-ip route del 192.168.123.0/24 scope link dev tap0
+# ip route del 192.168.123.0/24 scope link dev tap0

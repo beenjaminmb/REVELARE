@@ -49,7 +49,10 @@ class Parser:
                 dst = self.apply_dependency(dst, r2, vdift, space)
             #ret_val = "copy dependency(to={},from={})".format(dst,src)
             r, dst_len = self.get_reg_name(dst)
+
+            dprint("BEFORE: dst={}, src={}, ret_val={}, r={}, dst_len={}".format(dst, src, ret_val, r, dst_len), conf=conf)
             ret_val = vdift.DIFT_copy_dependency(dst, src, dst_len, r2, space=space)
+            dprint("AFTER: dst={}, src={}, ret_val={}, r={}, dst_len={}".format(dst, src, ret_val, r, dst_len), conf=conf)
 
         #catch load address dependencies
         if self.is_lad(opp):
@@ -101,6 +104,7 @@ class Parser:
             lhs = tup[1]
             rhs = tup[2]
             lhs2 = ""
+            dprint("BEFORE. foo : rhs={}, lhs={}".format(rhs, lhs), conf=conf)
             if type(lhs) == tuple:
                 lhs2 = self.apply_dependency(lhs, r2, vdift, space)
                 lhs = r2.cmd("ae {}".format(self.esil_from_tuple(lhs)))
@@ -114,11 +118,14 @@ class Parser:
             #if the RHS is not in its simplest form
             if type(rhs) == tuple:
                 rhs = self.apply_dependency(rhs, r2, vdift, space)
+            dprint("BEFORE. foo : rhs={}, lhs={}, ret_val={}".format(rhs, lhs, ret_val), conf=conf)
             ret_val = vdift.DIFT_store_address_dependency(rhs, lhs2, opp, r2)
+            dprint("AFTER: rhs={}, lhs={}, ret_val={}".format(rhs, lhs, ret_val), conf=conf)
             #ret_val.len should work because its a taint mark and has a .len
             # ret_val.len is not returned properly
+            dprint("BEFORE: rhs={}, lhs={}, ret_val={}".format(rhs, lhs, ret_val), conf=conf)
             ret_val = vdift.DIFT_copy_dependency(lhs, ret_val, ret_val.len, r2, space=space)
-
+            dprint("AFTER: rhs={}, lhs={}, ret_val={}".format(rhs, lhs, ret_val), conf=conf)
         #Is computation that sets a value/ends in copy dependency
         if self.is_comp_opp(opp):
             if len(tup) == 2:
@@ -236,8 +243,6 @@ class Parser:
         return self.conf.get("arch").get("ret")
 
     def is_a_constant(self, s):
-        if type(s) == str:
-            print('is_a_constant.308: type(s)={}, startswith()={}, s = {}'.format(type(s), s.startswith("0x"), s))
         if s == "constant":
             return True
         if type(s) != str:
@@ -323,7 +328,7 @@ class Parser:
         argstack = []
         in_ctrl = False
         cond_list = ""
-        # dprint('parse_esil.401. s={}, regs={}'.format(s, regs), conf=self.conf)
+        dprint('parse_esil.401. s={}, regs={}'.format(s, regs), conf=self.conf)
         for i in s:
             if type(i) == str and i =='':
                 continue

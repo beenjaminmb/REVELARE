@@ -10,8 +10,8 @@ MAC=52:54:00:06:c9:92
 
 # 52:54:00:1a:f3:f9
 
-sudo ./build/x86_64-softmmu/qemu-system-x86_64\
-    -hda /var/lib/libvirt/images/ubuntu16.04.qcow2\
+sudo qemu-system-x86_64 -runas nhtvl\
+    -hda $1\
     -m 4096\
     -device e1000,netdev=net0,mac=$MAC\
     -netdev tap,id=net0,ifname=tap0,script=no,downscript=no\

@@ -2,7 +2,7 @@
 
 # Host-based Routing
 ## Configure ip forarding
-# sysctl -w net.ipv4.ip_forward=1
+sysctl -w net.ipv4.ip_forward=0
 ##
 # ip route add 192.168.123.0/24 scope link dev tap0
 

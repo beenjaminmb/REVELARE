@@ -90,7 +90,9 @@ def do_set_sources(r2, sources, conf=None):
     do_set_ip_rcv_addr(r2, conf=conf)
 
 def do_set_ip_rcv_addr(r2, conf=None):
-    ret = r2.cmd('db 0xffffffff81890880')
+    """WARNING - HARD CODED VALUE - NEEDS CHANGED"""
+    # ret = r2.cmd('db 0xffffffff81890880') # Old address
+    ret = r2.cmd('db 0xffffffff81945a10')
     dprint('ret={}'.format(ret), conf=conf)
 
 def do_set_sinks(r2, sinks, conf=None):
@@ -98,7 +100,9 @@ def do_set_sinks(r2, sinks, conf=None):
     do_set_ip_local_out_addr(r2, conf=conf)
 
 def do_set_ip_local_out_addr(r2, conf=None):
-    ret = r2.cmd('db 0xffffffff81895ba0')
+    """WARNING - HARD CODED VALUE - NEEDS CHANGED"""
+    # ret = r2.cmd('db 0xffffffff81895ba0')
+    ret = r2.cmd('db 0xffffffff8194b420')
     dprint('ret={}'.format(ret), conf=conf)
 
 def print_stack(n, r2):
@@ -110,18 +114,52 @@ def print_stack(n, r2):
 
 def run_ao_command(r2, parser, conf=None):
     ao1 = r2.cmd("aoj")
+    e = ''
+    run_loop = 1
+    skip = 0
+    dprint('BEFORE.ao1={}'.format(ao1), conf=conf)
     ao1 = json.loads(ao1)
+    dprint('AFTER.ao1={}'.format(ao1), conf=conf)
     if len(ao1) > 1:
         dprint('ao1={}'.format(ao1), conf=conf)
     ao1 = ao1[0] if ao1 else None
     if not ao1:
         dprint("aoj returned nothing...", conf=conf)
-    d = parseao(ao1, conf=conf)
-    e = ''
-    run_loop = 1
-    skip = 0
-    e = parser.parse_esil(d.get('esil'),1)
-    dprint("universal_dift.137: d={}, e={}".format(d, e), conf=conf)
+    if ao1.get('esil'):
+        d = parseao(ao1, conf=conf)
+        e = ''
+        run_loop = 1
+        skip = 0
+        dprint('BEFORE: esil in ao1. d.get(esil)={}'.format(d.get('esil')), conf=conf)
+        e = parser.parse_esil(d.get('esil'),1)
+    else:
+        dprint('BEFORE. else . ao1={}'.format(ao1), conf=conf)
+        to_continue = 0
+        # The fuck is this crap? Why 5?!?!?!?
+        for i in range(5):
+            dprint('  1. in for loop {} ao1={}'.format(i, ao1), conf=conf)
+            ao1 = r2.cmd("aoj")
+            ao1 = json.loads(ao1)
+            ao1 = ao1[0] if ao1 else None
+            dprint(' 2. in for loop {} ao1={}, type()={}'.format(i, ao1, type(ao1)), conf=conf)
+            d = parseao(ao1)
+            if d.get('esil'):
+                dprint('contains esil i={}, d={}'.format(i, d), conf=conf)
+                e = parser.parse_esil(d.get('esil'),1) # BEN commented this out
+                e = [e] 
+                to_continue = 1
+                break
+            elif d.get('opcode'):
+                dprint('contains opcode: i={}, d={}'.format(i, d), conf=conf)
+                to_continue = 1
+                #print("skipped {}".format(d.get('opcode')))
+                e = [e]
+                skip = 1
+                break
+            dprint(' i={}, ao1={}'.format(i, ao1), conf=conf)
+        dprint('AFTER for loop else . ao1={}'.format(ao1), conf=conf)
+
+    dprint("AFTER: esil in ao1. d={}, e={}".format(d, e), conf=conf)
     return (ao1, d, e, run_loop, skip)
 
 #seek through main and find the last ret
@@ -146,7 +184,7 @@ def getIPname(r2, conf):
 
 #make a dictionary of "ao" info
 def parseao(ao1, conf=None):
-    dprint('ao1={}'.format(ao1), conf=None)
+    dprint('ao1={}, type()={}'.format(ao1, type(ao1)), conf=conf)
     d = {
             "esil" : ao1.get("esil"),
             "address" : ao1.get("addr"),

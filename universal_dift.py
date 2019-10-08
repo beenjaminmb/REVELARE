@@ -3,36 +3,60 @@
 #author 1207
 import r2pipe
 import sys
-from parse_lib import *
+import json
+from parse_lib import Parser, dprint 
 
 #from dift_functions import *
 
+def parse_args():
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-c','--conf', dest="conf", default="./conf.json",
+            help="The configuration file")
+    parser.add_argument('-v','--verbose', dest="verbose", default=False,
+            help="Print verbose output")
+    return parser.parse_args()
 
-
-def parse_conf():
+def parse_conf(conf=None):
     """
     1. Name of program
-
+    r2 -e dbg.exe.path=./vmlinux -e dbg.bpinmaps=0 -d gdb://127.0.0.1:1234
     """
+    conf_dict = None
+    if conf:
+        with open(conf) as f:
+            conf_dict = json.load(f)
+    else:
+        conf_dict = {
+                "program" : 'gdb://127.0.0.1:1234',
+                "r2args" : ['-d',
+                    '-e', 'dbg.exe.path=./vmlinux',
+                    '-e', 'dbg.bpinmaps=0'],
+                "program_args" : None,
+                "outfile" : "dift_out",
+                "dift_lib" : "dift_functions",
+                "arch" : {"pc" : "x86_64"},
+                "sources" : ["ip_rcv"],
+                "sinks" : ["ip_local_out"]
+                }
+    return conf_dict
+
 def main():
+    args = parse_args()
+    conf = parse_conf(args.conf)
     #pass program as input
-    if len(sys.argv) < 2:
-        exit(0)
-
-    #get the program and the args
-    program = sys.argv[1] #always the program
-    args = ""
-    for i in range(1, len(sys.argv[1:])):
-        args += sys.argv[i] + " "
-    args = args.strip()
-
+    args = conf.get("program_args")
+    program = conf.get("program")
+    if not program:
+        dprint("Error")
+        exit()
     # import the DIFT module
-    dift_lib = __import__(sys.argv[2])
+    dift_lib = __import__(conf.get("dift_lib"))
 
     #if they provide a second arg name the output it
     of =""
-    if len(sys.argv) == 4:
-        of = open(sys.argv[3], "w")
+    if conf.get("outfile"):
+        of = open(conf.get("outfile"), "w")
     else:
         of = open("dift_out", "w")
 
@@ -57,6 +81,7 @@ def main():
 
     eip = r2.cmd("dr?" + ip) # get instruction pointer
     r2.cmd("s "+eip) # seek to IP
+    parser = Parser(conf)
     vdift = dift_lib.DIFT()
     ao_output, d, e, run_loop, skip = run_ao_command(r2)
     while(run_loop):
